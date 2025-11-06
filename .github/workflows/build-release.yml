@@ -1,0 +1,346 @@
+name: Build and Release FaceSwap
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.0.0, v2.1.3, etc.
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          libopenblas-dev \
+          liblapack-dev \
+          libx11-dev \
+          libgtk-3-dev \
+          python3-dev \
+          libboost-python-dev \
+          libboost-thread-dev \
+          libboost-system-dev \
+          libavcodec-dev \
+          libavformat-dev \
+          libswscale-dev \
+          libv4l-dev \
+          libxvidcore-dev \
+          libx264-dev \
+          libjpeg-dev \
+          libpng-dev \
+          libtiff-dev \
+          gfortran
+          
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install wheel setuptools
+        pip install -r requirements.txt
+        pip install pyinstaller
+        
+    - name: Download model files
+      run: |
+        mkdir -p models
+        cd models
+        
+        # Download facial landmarks model
+        wget -q http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2
+        bunzip2 shape_predictor_68_face_landmarks.dat.bz2
+        
+        # Download face recognition model
+        wget -q http://dlib.net/files/dlib_face_recognition_resnet_model_v1.dat.bz2
+        bunzip2 dlib_face_recognition_resnet_model_v1.dat.bz2
+        
+        # Verify files exist
+        ls -la
+        
+    - name: Create executable with PyInstaller
+      run: |
+        pyinstaller --name="FaceSwap" \
+          --onedir \
+          --windowed \
+          --add-data="models:models" \
+          --add-data="gui:gui" \
+          --add-data="utils:utils" \
+          --add-data="requirements.txt:." \
+          --add-data="README.md:." \
+          --add-data="config.py:." \
+          --hidden-import="PySide6" \
+          --hidden-import="cv2" \
+          --hidden-import="dlib" \
+          --hidden-import="numpy" \
+          --collect-all="PySide6" \
+          main.py
+          
+    - name: Create Linux archive
+      run: |
+        cd dist
+        tar -czf FaceSwap-Linux-x64.tar.gz FaceSwap/
+        
+    - name: Upload Linux artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: FaceSwap-Linux-x64
+        path: dist/FaceSwap-Linux-x64.tar.gz
+
+  build-windows:
+    runs-on: windows-2019
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install wheel setuptools
+        pip install -r requirements.txt
+        pip install pyinstaller
+        
+    - name: Download model files
+      run: |
+        mkdir models
+        cd models
+        
+        # Download facial landmarks model
+        Invoke-WebRequest -Uri "http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2" -OutFile "shape_predictor_68_face_landmarks.dat.bz2"
+        
+        # Download face recognition model  
+        Invoke-WebRequest -Uri "http://dlib.net/files/dlib_face_recognition_resnet_model_v1.dat.bz2" -OutFile "dlib_face_recognition_resnet_model_v1.dat.bz2"
+        
+        # Extract files (Windows doesn't have bunzip2, so we'll include compressed files and extract at runtime)
+        # For now, let's use a workaround with 7-zip
+        
+    - name: Install 7-Zip
+      run: |
+        choco install 7zip -y
+        
+    - name: Extract model files
+      run: |
+        cd models
+        & "C:\Program Files\7-Zip\7z.exe" x "shape_predictor_68_face_landmarks.dat.bz2"
+        & "C:\Program Files\7-Zip\7z.exe" x "dlib_face_recognition_resnet_model_v1.dat.bz2"
+        dir
+        
+    - name: Create executable with PyInstaller
+      run: |
+        pyinstaller --name="FaceSwap" `
+          --onedir `
+          --windowed `
+          --add-data="models;models" `
+          --add-data="gui;gui" `
+          --add-data="utils;utils" `
+          --add-data="requirements.txt;." `
+          --add-data="README.md;." `
+          --add-data="config.py;." `
+          --hidden-import="PySide6" `
+          --hidden-import="cv2" `
+          --hidden-import="dlib" `
+          --hidden-import="numpy" `
+          --collect-all="PySide6" `
+          main.py
+          
+    - name: Create Windows archive
+      run: |
+        cd dist
+        Compress-Archive -Path "FaceSwap" -DestinationPath "FaceSwap-Windows-x64.zip"
+        
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: FaceSwap-Windows-x64
+        path: dist/FaceSwap-Windows-x64.zip
+
+  build-macos:
+    runs-on: macos-11
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install system dependencies
+      run: |
+        brew install cmake boost boost-python3
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install wheel setuptools
+        pip install -r requirements.txt
+        pip install pyinstaller
+        
+    - name: Download model files
+      run: |
+        mkdir -p models
+        cd models
+        
+        # Download facial landmarks model
+        curl -L -o shape_predictor_68_face_landmarks.dat.bz2 http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2
+        bunzip2 shape_predictor_68_face_landmarks.dat.bz2
+        
+        # Download face recognition model
+        curl -L -o dlib_face_recognition_resnet_model_v1.dat.bz2 http://dlib.net/files/dlib_face_recognition_resnet_model_v1.dat.bz2
+        bunzip2 dlib_face_recognition_resnet_model_v1.dat.bz2
+        
+        # Verify files exist
+        ls -la
+        
+    - name: Create executable with PyInstaller
+      run: |
+        pyinstaller --name="FaceSwap" \
+          --onedir \
+          --windowed \
+          --add-data="models:models" \
+          --add-data="gui:gui" \
+          --add-data="utils:utils" \
+          --add-data="requirements.txt:." \
+          --add-data="README.md:." \
+          --add-data="config.py:." \
+          --hidden-import="PySide6" \
+          --hidden-import="cv2" \
+          --hidden-import="dlib" \
+          --hidden-import="numpy" \
+          --collect-all="PySide6" \
+          main.py
+          
+    - name: Create macOS archive
+      run: |
+        cd dist
+        tar -czf FaceSwap-macOS-x64.tar.gz FaceSwap/
+        
+    - name: Upload macOS artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: FaceSwap-macOS-x64
+        path: dist/FaceSwap-macOS-x64.tar.gz
+
+  create-release:
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Get tag name
+      id: tag
+      run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.tag.outputs.TAG_NAME }}
+        release_name: FaceSwap ${{ steps.tag.outputs.TAG_NAME }}
+        draft: false
+        prerelease: false
+        body: |
+          ## FaceSwap ${{ steps.tag.outputs.TAG_NAME }}
+          
+          ### What's New
+          - Local face swapping with advanced computer vision
+          - No cloud dependencies - everything runs on your machine
+          - Intuitive GUI built with PySide6
+          - High-quality results using Poisson blending
+          - Support for multiple video formats
+          
+          ### Installation
+          
+          #### Windows
+          1. Download `FaceSwap-Windows-x64.zip`
+          2. Extract the archive
+          3. Run `FaceSwap.exe`
+          
+          #### Linux
+          1. Download `FaceSwap-Linux-x64.tar.gz`
+          2. Extract: `tar -xzf FaceSwap-Linux-x64.tar.gz`
+          3. Run: `./FaceSwap/FaceSwap`
+          
+          #### macOS
+          1. Download `FaceSwap-macOS-x64.tar.gz`
+          2. Extract: `tar -xzf FaceSwap-macOS-x64.tar.gz`
+          3. Run: `./FaceSwap/FaceSwap`
+          
+          ### System Requirements
+          - **OS**: Windows 10+, Ubuntu 18.04+, or macOS 10.14+
+          - **RAM**: 4GB minimum, 8GB recommended
+          - **CPU**: Multi-core processor recommended
+          - **Storage**: 2GB free space
+          
+          ### Usage
+          1. Select a video file
+          2. Scan for faces (this may take a few minutes)
+          3. Assign swap images to detected faces
+          4. Process the video
+          5. Find your swapped video in ~/Videos/
+          
+          ### Notes
+          - First run may take longer as models are loaded
+          - Processing time depends on video length and resolution
+          - For best results, use high-quality source images with clear faces
+          - The tool works entirely offline - no internet required after download
+          
+          ### Troubleshooting
+          - If you encounter issues, check the log file in the application directory
+          - Ensure your system meets the minimum requirements
+          - Try reducing video resolution for faster processing
+          
+          ---
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.tag.outputs.TAG_NAME }}...v${{ steps.tag.outputs.TAG_NAME }}
+          
+    - name: Upload Linux Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./FaceSwap-Linux-x64/FaceSwap-Linux-x64.tar.gz
+        asset_name: FaceSwap-Linux-x64.tar.gz
+        asset_content_type: application/gzip
+        
+    - name: Upload Windows Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./FaceSwap-Windows-x64/FaceSwap-Windows-x64.zip
+        asset_name: FaceSwap-Windows-x64.zip
+        asset_content_type: application/zip
+        
+    - name: Upload macOS Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./FaceSwap-macOS-x64/FaceSwap-macOS-x64.tar.gz
+        asset_name: FaceSwap-macOS-x64.tar.gz
+        asset_content_type: application/gzip
