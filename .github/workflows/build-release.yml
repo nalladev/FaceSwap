@@ -7,14 +7,14 @@ on:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
         
@@ -90,20 +90,20 @@ jobs:
         tar -czf FaceSwap-Linux-x64.tar.gz FaceSwap/
         
     - name: Upload Linux artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: FaceSwap-Linux-x64
         path: dist/FaceSwap-Linux-x64.tar.gz
 
   build-windows:
-    runs-on: windows-2019
+    runs-on: windows-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
         
@@ -163,20 +163,20 @@ jobs:
         Compress-Archive -Path "FaceSwap" -DestinationPath "FaceSwap-Windows-x64.zip"
         
     - name: Upload Windows artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: FaceSwap-Windows-x64
         path: dist/FaceSwap-Windows-x64.zip
 
   build-macos:
-    runs-on: macos-11
+    runs-on: macos-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
         
@@ -231,7 +231,7 @@ jobs:
         tar -czf FaceSwap-macOS-x64.tar.gz FaceSwap/
         
     - name: Upload macOS artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: FaceSwap-macOS-x64
         path: dist/FaceSwap-macOS-x64.tar.gz
@@ -249,16 +249,16 @@ jobs:
       run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
       
     - name: Download all artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       
     - name: Create Release
       id: create_release
-      uses: actions/create-release@v1
+      uses: softprops/action-gh-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ steps.tag.outputs.TAG_NAME }}
-        release_name: FaceSwap ${{ steps.tag.outputs.TAG_NAME }}
+        name: FaceSwap ${{ steps.tag.outputs.TAG_NAME }}
         draft: false
         prerelease: false
         body: |
@@ -315,32 +315,7 @@ jobs:
           ---
           **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.tag.outputs.TAG_NAME }}...v${{ steps.tag.outputs.TAG_NAME }}
           
-    - name: Upload Linux Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./FaceSwap-Linux-x64/FaceSwap-Linux-x64.tar.gz
-        asset_name: FaceSwap-Linux-x64.tar.gz
-        asset_content_type: application/gzip
-        
-    - name: Upload Windows Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./FaceSwap-Windows-x64/FaceSwap-Windows-x64.zip
-        asset_name: FaceSwap-Windows-x64.zip
-        asset_content_type: application/zip
-        
-    - name: Upload macOS Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./FaceSwap-macOS-x64/FaceSwap-macOS-x64.tar.gz
-        asset_name: FaceSwap-macOS-x64.tar.gz
-        asset_content_type: application/gzip
+        files: |
+          ./FaceSwap-Linux-x64/FaceSwap-Linux-x64.tar.gz
+          ./FaceSwap-Windows-x64/FaceSwap-Windows-x64.zip
+          ./FaceSwap-macOS-x64/FaceSwap-macOS-x64.tar.gz
