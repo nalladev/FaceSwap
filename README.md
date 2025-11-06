@@ -1,5 +1,8 @@
 # FaceSwap - Local Face Swapping Tool
 
+[![Build Status](https://github.com/your-username/FaceSwap/workflows/Build%20and%20Release%20FaceSwap/badge.svg)](https://github.com/your-username/FaceSwap/actions)
+[![Linux Build](https://github.com/your-username/FaceSwap/workflows/Build%20FaceSwap%20with%20Conda%20(Alternative)/badge.svg)](https://github.com/your-username/FaceSwap/actions)
+
 A powerful, local face swapping application built with Python, OpenCV, and Dlib. This tool allows you to swap faces in videos using advanced computer vision techniques, all running locally on your machine without any cloud dependencies.
 
 ## ⬇️ Download & Install
@@ -43,9 +46,29 @@ pip install -r requirements.txt
 # Download required AI models (automated)
 python download_models.py
 
+# Test installation (optional but recommended)
+python test_installation.py
+
 # Run the application
 python main.py
 ```
+
+### 🛠️ For Developers/Contributors
+
+If you want to trigger a manual build or test the CI/CD system:
+
+#### Manual Build Trigger
+1. Go to the **Actions** tab in the GitHub repository
+2. Select **"Build and Release FaceSwap"** workflow
+3. Click **"Run workflow"** button
+4. Enter a version tag (e.g., `v1.0.0-test`)
+5. Click **"Run workflow"** to start the build
+
+#### Alternative Conda Build
+For systems where dlib compilation fails:
+1. Go to **Actions** → **"Build FaceSwap with Conda (Alternative)"**
+2. Click **"Run workflow"**
+3. This uses pre-compiled packages and may work better on some systems
 
 ## Features
 
@@ -192,9 +215,11 @@ You can adjust these parameters in `config.py`:
 
 ### Getting Help
 
+- **Test Installation**: Run `python test_installation.py` to check if everything is working
 - **Check the logs**: Look for error messages in the application
 - **GitHub Issues**: Report bugs at [GitHub Issues](https://github.com/your-username/FaceSwap/issues)
 - **System Info**: Include your OS, RAM, and video details when reporting issues
+- **Build Issues**: If the Linux build fails, try the alternative Conda build from the Actions page
 
 ## Contributing
 
@@ -233,6 +258,13 @@ This application uses GitHub Releases for distribution:
 - **Automatic Updates**: Not yet available - check releases page manually
 - **Release Notes**: Each release includes detailed changelog
 - **Beta Versions**: Available for testing new features
+- **Manual Builds**: Contributors can trigger builds manually via GitHub Actions
+- **Alternative Builds**: Conda-based builds available for systems with compilation issues
+
+### Build Status
+- **Main Build** (pip-based): For most users and systems
+- **Conda Build** (conda-forge): For systems where dlib compilation fails
+- **Manual Triggers**: Available for testing and development
 
 ## 📝 License
 
