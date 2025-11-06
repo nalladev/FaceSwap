@@ -19,7 +19,7 @@ if requirements_file.exists():
         requirements = [line.strip() for line in f if line.strip() and not line.startswith('#')]
 
 # Version
-version = "1.0.0"
+version = "1.0.1"
 
 setup(
     name="faceswap-local",
@@ -87,7 +87,7 @@ setup(
     zip_safe=False,
     keywords=[
         "face-swap",
-        "computer-vision", 
+        "computer-vision",
         "video-processing",
         "opencv",
         "dlib",

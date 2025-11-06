@@ -6,16 +6,16 @@ on:
       version:
         description: 'Version tag (e.g., v1.0.0)'
         required: true
-        default: 'v1.0.0-conda'
+        default: 'v1.0.0'
 
 jobs:
   build-linux-conda:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v3
       with:
@@ -23,7 +23,7 @@ jobs:
         python-version: 3.9
         channels: conda-forge,defaults
         channel-priority: flexible
-        
+
     - name: Install system dependencies
       run: |
         sudo apt-get update
@@ -50,7 +50,7 @@ jobs:
           libxcb-shape0-dev \
           libxcb-randr0-dev \
           libxcb-render-util0-dev
-          
+
     - name: Install Python dependencies with Conda
       shell: bash -l {0}
       run: |
@@ -59,28 +59,28 @@ jobs:
           opencv=4.8.1 \
           numpy=1.24.3 \
           pillow=10.0.1
-          
+
         pip install PySide6==6.6.0 pyinstaller
-        
+
         python -c "import dlib; print(f'Dlib version: {dlib.__version__}')"
         python -c "import cv2; print(f'OpenCV version: {cv2.__version__}')"
         python -c "import PySide6; print('PySide6 imported successfully')"
-        
+
     - name: Download model files
       shell: bash -l {0}
       run: |
         mkdir -p models
         cd models
-        
+
         wget -q http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2
         bunzip2 shape_predictor_68_face_landmarks.dat.bz2
-        
+
         wget -q http://dlib.net/files/dlib_face_recognition_resnet_model_v1.dat.bz2
         bunzip2 dlib_face_recognition_resnet_model_v1.dat.bz2
-        
+
         ls -la
         echo "Models downloaded successfully"
-        
+
     - name: Test application startup
       shell: bash -l {0}
       run: |
@@ -90,7 +90,7 @@ jobs:
         from face_detector import FaceDetector
         from face_swapper import FaceSwapper
         print('✓ Core modules imported successfully')
-        
+
         try:
             detector = FaceDetector()
             print('✓ Face detector initialized successfully')
@@ -98,7 +98,7 @@ jobs:
             print(f'✗ Face detector failed: {e}')
             sys.exit(1)
         "
-        
+
     - name: Create executable with PyInstaller
       shell: bash -l {0}
       run: |
@@ -106,7 +106,7 @@ jobs:
         if [ ! -d "$CONDA_PREFIX" ]; then
           CONDA_PREFIX=$CONDA_PREFIX
         fi
-        
+
         pyinstaller --name="FaceSwap" \
           --onedir \
           --windowed \
@@ -126,21 +126,21 @@ jobs:
           --collect-all="PySide6" \
           --paths="$CONDA_PREFIX/lib/python3.9/site-packages" \
           main.py
-          
+
         if [ -f "dist/FaceSwap/FaceSwap" ]; then
           echo "✓ Executable created successfully"
         else
           echo "✗ Executable creation failed"
           exit 1
         fi
-          
+
     - name: Test executable
       shell: bash -l {0}
       run: |
         cd dist/FaceSwap
         timeout 10s ./FaceSwap --help || true
         echo "✓ Executable test completed"
-        
+
     - name: Create Linux archive
       run: |
         cd dist
@@ -152,7 +152,7 @@ jobs:
         echo "Installation complete. Run ./FaceSwap to start the application."
         EOF
         chmod +x FaceSwap/install.sh
-        
+
         cat > FaceSwap/README.txt << 'EOF'
         FaceSwap - Local Face Swapping Tool (Conda Build)
 
@@ -171,9 +171,9 @@ jobs:
 
         For support, visit: https://github.com/your-username/FaceSwap
         EOF
-        
+
         tar -czf FaceSwap-Linux-x64-conda.tar.gz FaceSwap/
-        
+
     - name: Upload Linux Conda artifact
       uses: actions/upload-artifact@v4
       with:
@@ -182,11 +182,11 @@ jobs:
 
   build-windows-conda:
     runs-on: windows-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v3
       with:
@@ -194,7 +194,7 @@ jobs:
         python-version: 3.9
         channels: conda-forge,defaults
         channel-priority: flexible
-        
+
     - name: Install Python dependencies with Conda
       shell: bash -l {0}
       run: |
@@ -203,29 +203,29 @@ jobs:
           opencv=4.8.1 \
           numpy=1.24.3 \
           pillow=10.0.1
-          
+
         pip install PySide6==6.6.0 pyinstaller
-        
+
         python -c "import dlib; print(f'Dlib version: {dlib.__version__}')"
         python -c "import cv2; print(f'OpenCV version: {cv2.__version__}')"
         python -c "import PySide6; print('PySide6 imported successfully')"
-        
+
     - name: Download model files
       shell: bash -l {0}
       run: |
         mkdir -p models
         cd models
-        
+
         curl -L -o shape_predictor_68_face_landmarks.dat.bz2 http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2
         curl -L -o dlib_face_recognition_resnet_model_v1.dat.bz2 http://dlib.net/files/dlib_face_recognition_resnet_model_v1.dat.bz2
-        
+
         choco install 7zip -y
         "C:\Program Files\7-Zip\7z.exe" x "shape_predictor_68_face_landmarks.dat.bz2"
         "C:\Program Files\7-Zip\7z.exe" x "dlib_face_recognition_resnet_model_v1.dat.bz2"
-        
+
         dir
         echo "Models downloaded and extracted successfully"
-        
+
     - name: Create executable with PyInstaller
       shell: bash -l {0}
       run: |
@@ -247,7 +247,7 @@ jobs:
           --hidden-import="numpy" \
           --collect-all="PySide6" \
           main.py
-          
+
     - name: Create Windows archive
       run: |
         cd dist
@@ -263,9 +263,9 @@ jobs:
         echo "- Multi-core CPU recommended" >> FaceSwap/README.txt
         echo "" >> FaceSwap/README.txt
         echo "For support, visit: https://github.com/your-username/FaceSwap" >> FaceSwap/README.txt
-        
+
         Compress-Archive -Path "FaceSwap" -DestinationPath "FaceSwap-Windows-x64-conda.zip"
-        
+
     - name: Upload Windows Conda artifact
       uses: actions/upload-artifact@v4
       with:
@@ -275,18 +275,18 @@ jobs:
   create-conda-release:
     needs: [build-linux-conda, build-windows-conda]
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Get version name
       id: version
       run: echo "VERSION_NAME=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-      
+
     - name: Download all artifacts
       uses: actions/download-artifact@v4
-      
+
     - name: Create Conda Release
       uses: softprops/action-gh-release@v1
       env:
@@ -298,50 +298,50 @@ jobs:
         prerelease: true
         body: |
           ## FaceSwap ${{ steps.version.outputs.VERSION_NAME }} - Conda Build
-          
+
           ### Alternative Release Built with Conda
-          
+
           This is an alternative release built using Conda package manager instead of pip.
           This version may be more stable on some systems due to pre-compiled packages.
-          
+
           ### What's New
           - Built with Conda for better dependency management
           - Pre-compiled dlib package (no compilation required)
           - More stable on various Linux distributions
           - All dependencies bundled and tested
-          
+
           ### Installation
-          
+
           #### Windows (Conda Build)
           1. Download `FaceSwap-Windows-x64-conda.zip`
           2. Extract the archive
           3. Run `FaceSwap.exe`
-          
+
           #### Linux (Conda Build)
           1. Download `FaceSwap-Linux-x64-conda.tar.gz`
           2. Extract: `tar -xzf FaceSwap-Linux-x64-conda.tar.gz`
           3. Install dependencies: `./FaceSwap/install.sh`
           4. Run: `./FaceSwap/FaceSwap`
-          
+
           ### System Requirements
           - **OS**: Windows 10+, Ubuntu 18.04+
           - **RAM**: 4GB minimum, 8GB recommended
           - **CPU**: Multi-core processor recommended
           - **Storage**: 2GB free space
-          
+
           ### Differences from Regular Build
           - Uses Conda-packaged dependencies instead of pip
           - May work better on systems where dlib compilation fails
           - Slightly larger download size due to additional libraries
           - More compatible across different Linux distributions
-          
+
           ### Notes
           - This is a pre-release build for testing
           - If you encounter issues, try the regular pip-based release
           - All functionality is identical to the main release
-          
+
           ---
-          **Built with**: Conda + PyInstaller  
+          **Built with**: Conda + PyInstaller
           **Dependencies**: dlib (conda-forge), OpenCV (conda-forge), PySide6 (pip)
         files: |
           ./FaceSwap-Linux-x64-conda/FaceSwap-Linux-x64-conda.tar.gz

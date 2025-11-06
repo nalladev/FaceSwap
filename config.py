@@ -14,7 +14,7 @@ from pathlib import Path
 # ============================================================================
 
 APP_NAME = "FaceSwap"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 APP_DESCRIPTION = "Local Face Swapping Tool"
 
 # Project paths
@@ -171,7 +171,7 @@ REQUIRED_MODELS = {
         "description": "68-point facial landmark predictor"
     },
     "face_recognition": {
-        "filename": "dlib_face_recognition_resnet_model_v1.dat", 
+        "filename": "dlib_face_recognition_resnet_model_v1.dat",
         "url": "http://dlib.net/files/dlib_face_recognition_resnet_model_v1.dat.bz2",
         "description": "Face recognition model"
     }
@@ -253,29 +253,29 @@ DEFAULT_QUALITY_PRESET = "balanced"
 def apply_quality_preset(preset_name: str):
     """
     Apply a quality preset configuration.
-    
+
     Args:
         preset_name: Name of the preset to apply
     """
     if preset_name not in QUALITY_PRESETS:
         raise ValueError(f"Unknown quality preset: {preset_name}")
-    
+
     preset = QUALITY_PRESETS[preset_name]
     globals().update(preset)
 
 def get_model_path(model_name: str) -> Path:
     """
     Get the full path to a model file.
-    
+
     Args:
         model_name: Name of the model (from REQUIRED_MODELS keys)
-        
+
     Returns:
         Path to the model file
     """
     if model_name not in REQUIRED_MODELS:
         raise ValueError(f"Unknown model: {model_name}")
-    
+
     filename = REQUIRED_MODELS[model_name]["filename"]
     return MODELS_DIR / filename
 
@@ -285,7 +285,7 @@ def validate_config():
     """
     global FACE_DETECTION_SCALE, FACE_RECOGNITION_THRESHOLD
     global MASK_FEATHER_AMOUNT, COLOR_CORRECTION_STRENGTH
-    
+
     # Clamp values to valid ranges
     FACE_DETECTION_SCALE = max(0.1, min(1.0, FACE_DETECTION_SCALE))
     FACE_RECOGNITION_THRESHOLD = max(0.1, min(1.0, FACE_RECOGNITION_THRESHOLD))
