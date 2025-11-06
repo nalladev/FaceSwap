@@ -3,8 +3,8 @@ name: Build and Release FaceSwap
 on:
   push:
     tags:
-      - 'v*'  # Triggers on version tags like v1.0.0, v2.1.3, etc.
-  workflow_dispatch:  # Allow manual triggering
+      - 'v*'
+  workflow_dispatch:
     inputs:
       version:
         description: 'Version tag (e.g., v1.0.0)'
@@ -54,13 +54,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install wheel setuptools
         
-        # Install non-problematic packages first
         pip install numpy==1.24.3 Pillow==10.0.1
         
-        # Try to install dlib with comprehensive fallback strategy
         echo "=== Installing dlib with fallback strategies ==="
         
-        # Method 1: Try pre-built wheel from PyPI
         echo "Method 1: Trying pre-built wheel from PyPI..."
         if pip install dlib==19.24.2 --only-binary=dlib --no-cache-dir 2>/dev/null; then
           echo "✓ SUCCESS: Dlib installed from PyPI pre-built wheel"
@@ -70,7 +67,6 @@ jobs:
           DLIB_INSTALLED=false
         fi
         
-        # Method 2: Try conda-forge wheel
         if [ "$DLIB_INSTALLED" = false ]; then
           echo "Method 2: Trying conda-forge wheel..."
           if pip install --extra-index-url https://pypi.anaconda.org/conda-forge/simple dlib==19.24.2 --only-binary=dlib 2>/dev/null; then
@@ -81,7 +77,6 @@ jobs:
           fi
         fi
         
-        # Method 3: Try specific known working wheel
         if [ "$DLIB_INSTALLED" = false ]; then
           echo "Method 3: Trying specific known wheel..."
           if pip install https://files.pythonhosted.org/packages/0e/ce/f8a3cff33ac03a8219768f0694c5d703c8e037e6aba2e865f9bae22ed63c/dlib-19.24.2-cp39-cp39-linux_x86_64.whl 2>/dev/null; then
@@ -92,7 +87,6 @@ jobs:
           fi
         fi
         
-        # Method 4: Build with system libraries
         if [ "$DLIB_INSTALLED" = false ]; then
           echo "Method 4: Building with system dlib libraries..."
           export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
@@ -104,12 +98,11 @@ jobs:
           fi
         fi
         
-        # Method 5: Last resort - build from source with all optimizations disabled
         if [ "$DLIB_INSTALLED" = false ]; then
           echo "Method 5: Last resort - minimal build from source..."
           pip install cmake==3.29.0
           export CMAKE_ARGS="-DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DDLIB_NO_GUI_SUPPORT=ON -DDLIB_USE_CUDA=OFF -DDLIB_USE_BLAS=OFF -DDLIB_USE_LAPACK=OFF"
-          export MAKEFLAGS="-j1"  # Single threaded to avoid memory issues
+          export MAKEFLAGS="-j1"
           if pip install dlib==19.24.0 --no-cache-dir --verbose; then
             echo "✓ SUCCESS: Dlib built from source (minimal)"
             DLIB_INSTALLED=true
@@ -119,11 +112,9 @@ jobs:
           fi
         fi
         
-        # Install remaining packages
         pip install opencv-python==4.8.1.78 PySide6==6.6.0
         pip install pyinstaller
         
-        # Verify installation
         python -c "import dlib; print(f'✓ Dlib {dlib.__version__} imported successfully')"
         
     - name: Download model files
@@ -131,33 +122,29 @@ jobs:
         mkdir -p models
         cd models
         
-        # Download facial landmarks model
         wget -q http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2
         bunzip2 shape_predictor_68_face_landmarks.dat.bz2
         
-        # Download face recognition model
         wget -q http://dlib.net/files/dlib_face_recognition_resnet_model_v1.dat.bz2
         bunzip2 dlib_face_recognition_resnet_model_v1.dat.bz2
         
-        # Verify files exist
         ls -la
         
     - name: Create executable with PyInstaller
       run: |
-        # Verify all imports work before building
         python -c "
-import sys, traceback
-try:
-    import dlib
-    import cv2
-    import numpy as np
-    from PySide6 import QtCore, QtGui, QtWidgets
-    print('✓ All imports successful')
-except Exception as e:
-    print(f'✗ Import failed: {e}')
-    traceback.print_exc()
-    sys.exit(1)
-"
+        import sys, traceback
+        try:
+            import dlib
+            import cv2
+            import numpy as np
+            from PySide6 import QtCore, QtGui, QtWidgets
+            print('✓ All imports successful')
+        except Exception as e:
+            print(f'✗ Import failed: {e}')
+            traceback.print_exc()
+            sys.exit(1)
+        "
         
         pyinstaller --name="FaceSwap" \
           --onedir \
@@ -179,7 +166,6 @@ except Exception as e:
           --noconfirm \
           main.py
           
-        # Verify the executable was created
         if [ -f "dist/FaceSwap/FaceSwap" ]; then
           echo "✓ Executable created successfully"
           ls -la dist/FaceSwap/
@@ -224,14 +210,8 @@ except Exception as e:
         mkdir models
         cd models
         
-        # Download facial landmarks model
         Invoke-WebRequest -Uri "http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2" -OutFile "shape_predictor_68_face_landmarks.dat.bz2"
-        
-        # Download face recognition model  
         Invoke-WebRequest -Uri "http://dlib.net/files/dlib_face_recognition_resnet_model_v1.dat.bz2" -OutFile "dlib_face_recognition_resnet_model_v1.dat.bz2"
-        
-        # Extract files (Windows doesn't have bunzip2, so we'll include compressed files and extract at runtime)
-        # For now, let's use a workaround with 7-zip
         
     - name: Install 7-Zip
       run: |
@@ -273,10 +253,6 @@ except Exception as e:
         name: FaceSwap-Windows-x64
         path: dist/FaceSwap-Windows-x64.zip
 
-  # Temporarily disabled macOS build
-  # build-macos:
-  #   runs-on: macos-latest
-
   create-release:
     needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
@@ -298,7 +274,6 @@ except Exception as e:
       uses: actions/download-artifact@v4
       
     - name: Create Release
-      id: create_release
       uses: softprops/action-gh-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -329,13 +304,8 @@ except Exception as e:
           2. Extract: `tar -xzf FaceSwap-Linux-x64.tar.gz`
           3. Run: `./FaceSwap/FaceSwap`
           
-          #### macOS
-          1. Download `FaceSwap-macOS-x64.tar.gz`
-          2. Extract: `tar -xzf FaceSwap-macOS-x64.tar.gz`
-          3. Run: `./FaceSwap/FaceSwap`
-          
           ### System Requirements
-          - **OS**: Windows 10+, Ubuntu 18.04+, or macOS 10.14+
+          - **OS**: Windows 10+, Ubuntu 18.04+
           - **RAM**: 4GB minimum, 8GB recommended
           - **CPU**: Multi-core processor recommended
           - **Storage**: 2GB free space
@@ -360,7 +330,6 @@ except Exception as e:
           
           ---
           **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.tag.outputs.TAG_NAME }}...v${{ steps.tag.outputs.TAG_NAME }}
-          
         files: |
           ./FaceSwap-Linux-x64/FaceSwap-Linux-x64.tar.gz
           ./FaceSwap-Windows-x64/FaceSwap-Windows-x64.zip

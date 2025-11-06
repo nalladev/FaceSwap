@@ -1,7 +1,7 @@
 name: Build FaceSwap with Conda (Alternative)
 
 on:
-  workflow_dispatch:  # Manual trigger only
+  workflow_dispatch:
     inputs:
       version:
         description: 'Version tag (e.g., v1.0.0)'
@@ -54,17 +54,14 @@ jobs:
     - name: Install Python dependencies with Conda
       shell: bash -l {0}
       run: |
-        # Install packages from conda-forge (includes pre-built dlib)
         conda install -c conda-forge -y \
           dlib=19.24.2 \
           opencv=4.8.1 \
           numpy=1.24.3 \
           pillow=10.0.1
           
-        # Install PySide6 and PyInstaller from pip (better Qt support)
         pip install PySide6==6.6.0 pyinstaller
         
-        # Verify installations
         python -c "import dlib; print(f'Dlib version: {dlib.__version__}')"
         python -c "import cv2; print(f'OpenCV version: {cv2.__version__}')"
         python -c "import PySide6; print('PySide6 imported successfully')"
@@ -75,48 +72,41 @@ jobs:
         mkdir -p models
         cd models
         
-        # Download facial landmarks model
         wget -q http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2
         bunzip2 shape_predictor_68_face_landmarks.dat.bz2
         
-        # Download face recognition model
         wget -q http://dlib.net/files/dlib_face_recognition_resnet_model_v1.dat.bz2
         bunzip2 dlib_face_recognition_resnet_model_v1.dat.bz2
         
-        # Verify files exist
         ls -la
         echo "Models downloaded successfully"
         
     - name: Test application startup
       shell: bash -l {0}
       run: |
-        # Quick test to ensure all imports work
         python -c "
-import sys
-sys.path.append('.')
-from face_detector import FaceDetector
-from face_swapper import FaceSwapper
-print('✓ Core modules imported successfully')
-
-# Test model loading
-try:
-    detector = FaceDetector()
-    print('✓ Face detector initialized successfully')
-except Exception as e:
-    print(f'✗ Face detector failed: {e}')
-    sys.exit(1)
-"
+        import sys
+        sys.path.append('.')
+        from face_detector import FaceDetector
+        from face_swapper import FaceSwapper
+        print('✓ Core modules imported successfully')
+        
+        try:
+            detector = FaceDetector()
+            print('✓ Face detector initialized successfully')
+        except Exception as e:
+            print(f'✗ Face detector failed: {e}')
+            sys.exit(1)
+        "
         
     - name: Create executable with PyInstaller
       shell: bash -l {0}
       run: |
-        # Get conda environment path for proper library inclusion
         CONDA_PREFIX=$(conda info --base)/envs/test
         if [ ! -d "$CONDA_PREFIX" ]; then
           CONDA_PREFIX=$CONDA_PREFIX
         fi
         
-        # Create PyInstaller spec with conda paths
         pyinstaller --name="FaceSwap" \
           --onedir \
           --windowed \
@@ -137,7 +127,6 @@ except Exception as e:
           --paths="$CONDA_PREFIX/lib/python3.9/site-packages" \
           main.py
           
-        # Verify the executable was created
         if [ -f "dist/FaceSwap/FaceSwap" ]; then
           echo "✓ Executable created successfully"
         else
@@ -149,42 +138,39 @@ except Exception as e:
       shell: bash -l {0}
       run: |
         cd dist/FaceSwap
-        # Test that the executable can start (will fail due to no display, but should load libraries)
         timeout 10s ./FaceSwap --help || true
         echo "✓ Executable test completed"
         
     - name: Create Linux archive
       run: |
         cd dist
-        # Create installation script
         cat > FaceSwap/install.sh << 'EOF'
-#!/bin/bash
-echo "Installing FaceSwap..."
-sudo apt-get update
-sudo apt-get install -y libx11-6 libgtk-3-0 libasound2 libfontconfig1 libfreetype6
-echo "Installation complete. Run ./FaceSwap to start the application."
-EOF
+        #!/bin/bash
+        echo "Installing FaceSwap..."
+        sudo apt-get update
+        sudo apt-get install -y libx11-6 libgtk-3-0 libasound2 libfontconfig1 libfreetype6
+        echo "Installation complete. Run ./FaceSwap to start the application."
+        EOF
         chmod +x FaceSwap/install.sh
         
-        # Create README
         cat > FaceSwap/README.txt << 'EOF'
-FaceSwap - Local Face Swapping Tool (Conda Build)
+        FaceSwap - Local Face Swapping Tool (Conda Build)
 
-INSTALLATION:
-1. Run: ./install.sh (installs system dependencies)
-2. Run: ./FaceSwap (starts the application)
+        INSTALLATION:
+        1. Run: ./install.sh (installs system dependencies)
+        2. Run: ./FaceSwap (starts the application)
 
-SYSTEM REQUIREMENTS:
-- Ubuntu 18.04+ or compatible Linux distribution
-- 4GB RAM minimum, 8GB recommended
-- Multi-core CPU recommended
+        SYSTEM REQUIREMENTS:
+        - Ubuntu 18.04+ or compatible Linux distribution
+        - 4GB RAM minimum, 8GB recommended
+        - Multi-core CPU recommended
 
-TROUBLESHOOTING:
-- If the app won't start, run: ldd ./FaceSwap
-- Check for missing libraries and install with apt-get
+        TROUBLESHOOTING:
+        - If the app won't start, run: ldd ./FaceSwap
+        - Check for missing libraries and install with apt-get
 
-For support, visit: https://github.com/your-username/FaceSwap
-EOF
+        For support, visit: https://github.com/your-username/FaceSwap
+        EOF
         
         tar -czf FaceSwap-Linux-x64-conda.tar.gz FaceSwap/
         
@@ -212,17 +198,14 @@ EOF
     - name: Install Python dependencies with Conda
       shell: bash -l {0}
       run: |
-        # Install packages from conda-forge
         conda install -c conda-forge -y \
           dlib=19.24.2 \
           opencv=4.8.1 \
           numpy=1.24.3 \
           pillow=10.0.1
           
-        # Install PySide6 and PyInstaller from pip
         pip install PySide6==6.6.0 pyinstaller
         
-        # Verify installations
         python -c "import dlib; print(f'Dlib version: {dlib.__version__}')"
         python -c "import cv2; print(f'OpenCV version: {cv2.__version__}')"
         python -c "import PySide6; print('PySide6 imported successfully')"
@@ -233,16 +216,12 @@ EOF
         mkdir -p models
         cd models
         
-        # Download facial landmarks model
         curl -L -o shape_predictor_68_face_landmarks.dat.bz2 http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2
-        
-        # Download face recognition model  
         curl -L -o dlib_face_recognition_resnet_model_v1.dat.bz2 http://dlib.net/files/dlib_face_recognition_resnet_model_v1.dat.bz2
         
-        # Install 7-Zip and extract
         choco install 7zip -y
-        & "C:\Program Files\7-Zip\7z.exe" x "shape_predictor_68_face_landmarks.dat.bz2"
-        & "C:\Program Files\7-Zip\7z.exe" x "dlib_face_recognition_resnet_model_v1.dat.bz2"
+        "C:\Program Files\7-Zip\7z.exe" x "shape_predictor_68_face_landmarks.dat.bz2"
+        "C:\Program Files\7-Zip\7z.exe" x "dlib_face_recognition_resnet_model_v1.dat.bz2"
         
         dir
         echo "Models downloaded and extracted successfully"
@@ -272,7 +251,6 @@ EOF
     - name: Create Windows archive
       run: |
         cd dist
-        # Create README
         echo "FaceSwap - Local Face Swapping Tool (Conda Build)" > FaceSwap/README.txt
         echo "" >> FaceSwap/README.txt
         echo "USAGE:" >> FaceSwap/README.txt
@@ -365,7 +343,6 @@ EOF
           ---
           **Built with**: Conda + PyInstaller  
           **Dependencies**: dlib (conda-forge), OpenCV (conda-forge), PySide6 (pip)
-          
         files: |
           ./FaceSwap-Linux-x64-conda/FaceSwap-Linux-x64-conda.tar.gz
           ./FaceSwap-Windows-x64-conda/FaceSwap-Windows-x64-conda.zip
