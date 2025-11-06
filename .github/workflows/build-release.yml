@@ -11,6 +11,10 @@ on:
         required: true
         default: 'v1.0.0-manual'
 
+permissions:
+  contents: write
+  discussions: write
+
 jobs:
   build-linux:
     runs-on: ubuntu-latest
@@ -56,61 +60,9 @@ jobs:
         
         pip install numpy==1.24.3 Pillow==10.0.1
         
-        echo "=== Installing dlib with fallback strategies ==="
-        
-        echo "Method 1: Trying pre-built wheel from PyPI..."
-        if pip install dlib==19.24.2 --only-binary=dlib --no-cache-dir 2>/dev/null; then
-          echo "✓ SUCCESS: Dlib installed from PyPI pre-built wheel"
-          DLIB_INSTALLED=true
-        else
-          echo "✗ FAILED: No pre-built wheel available on PyPI"
-          DLIB_INSTALLED=false
-        fi
-        
-        if [ "$DLIB_INSTALLED" = false ]; then
-          echo "Method 2: Trying conda-forge wheel..."
-          if pip install --extra-index-url https://pypi.anaconda.org/conda-forge/simple dlib==19.24.2 --only-binary=dlib 2>/dev/null; then
-            echo "✓ SUCCESS: Dlib installed from conda-forge wheel"
-            DLIB_INSTALLED=true
-          else
-            echo "✗ FAILED: conda-forge wheel installation failed"
-          fi
-        fi
-        
-        if [ "$DLIB_INSTALLED" = false ]; then
-          echo "Method 3: Trying specific known wheel..."
-          if pip install https://files.pythonhosted.org/packages/0e/ce/f8a3cff33ac03a8219768f0694c5d703c8e037e6aba2e865f9bae22ed63c/dlib-19.24.2-cp39-cp39-linux_x86_64.whl 2>/dev/null; then
-            echo "✓ SUCCESS: Dlib installed from specific wheel"  
-            DLIB_INSTALLED=true
-          else
-            echo "✗ FAILED: Specific wheel installation failed"
-          fi
-        fi
-        
-        if [ "$DLIB_INSTALLED" = false ]; then
-          echo "Method 4: Building with system dlib libraries..."
-          export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
-          if pip install dlib==19.24.2 --no-build-isolation --no-cache-dir 2>/dev/null; then
-            echo "✓ SUCCESS: Dlib built with system libraries"
-            DLIB_INSTALLED=true
-          else
-            echo "✗ FAILED: System library build failed"
-          fi
-        fi
-        
-        if [ "$DLIB_INSTALLED" = false ]; then
-          echo "Method 5: Last resort - minimal build from source..."
-          pip install cmake==3.29.0
-          export CMAKE_ARGS="-DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DDLIB_NO_GUI_SUPPORT=ON -DDLIB_USE_CUDA=OFF -DDLIB_USE_BLAS=OFF -DDLIB_USE_LAPACK=OFF"
-          export MAKEFLAGS="-j1"
-          if pip install dlib==19.24.0 --no-cache-dir --verbose; then
-            echo "✓ SUCCESS: Dlib built from source (minimal)"
-            DLIB_INSTALLED=true
-          else
-            echo "✗ CRITICAL FAILURE: All dlib installation methods failed"
-            exit 1
-          fi
-        fi
+        echo "=== Installing dlib with system libraries ==="
+        export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
+        pip install dlib==19.24.2 --no-build-isolation --no-cache-dir
         
         pip install opencv-python==4.8.1.78 PySide6==6.6.0
         pip install pyinstaller
@@ -256,6 +208,9 @@ jobs:
   create-release:
     needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      discussions: write
     
     steps:
     - name: Checkout code
@@ -274,10 +229,9 @@ jobs:
       uses: actions/download-artifact@v4
       
     - name: Create Release
-      uses: softprops/action-gh-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: softprops/action-gh-release@v2
       with:
+        token: ${{ secrets.GITHUB_TOKEN }}
         tag_name: ${{ steps.tag.outputs.TAG_NAME }}
         name: FaceSwap ${{ steps.tag.outputs.TAG_NAME }}
         draft: false
