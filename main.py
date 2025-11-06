@@ -122,8 +122,13 @@ def create_application():
         QApplication: Configured application instance
     """
     # Set application attributes before creating QApplication
-    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
-    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+    # High DPI scaling is enabled by default in Qt 6, so these attributes are deprecated
+    # QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)  # Deprecated in Qt 6
+    # QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)     # Deprecated in Qt 6
+    
+    # Force native file dialogs (PopOS system dialogs)
+    # Note: By default, Qt uses native dialogs, but we ensure it's not disabled
+    pass  # Native dialogs should be used by default
     
     app = QApplication(sys.argv)
     

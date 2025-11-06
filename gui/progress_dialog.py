@@ -1,7 +1,7 @@
 import sys
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                                QPushButton, QProgressBar, QTextEdit, QFrame)
-from PySide6.QtCore import Qt, Signal, QTimer, QThread, pyqtSignal
+from PySide6.QtCore import Qt, Signal, QTimer, QThread
 from PySide6.QtGui import QFont, QMovie
 import logging
 

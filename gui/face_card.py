@@ -2,7 +2,7 @@ import sys
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                                QPushButton, QFileDialog, QFrame, QSizePolicy)
 from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QPixmap, QFont
+from PySide6.QtGui import QPixmap, QFont, QPainter, QBrush, QPen
 import cv2
 import numpy as np
 import os
@@ -10,300 +10,343 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class FaceCard(QWidget):
-    """
-    Widget representing a detected face with options to assign a swap image.
-    Displays the detected face thumbnail and provides interface to select replacement image.
-    """
+class CircleImageLabel(QLabel):
+    """Custom label that displays images in a circle."""
     
-    # Signal emitted when a swap image is selected
+    def __init__(self, size=80):
+        super().__init__()
+        self.circle_size = size
+        self.setFixedSize(size, size)
+        self.setAlignment(Qt.AlignCenter)
+        self.setStyleSheet(f"""
+            QLabel {{
+                border: 2px solid #bdc3c7;
+                border-radius: {size//2}px;
+                background-color: #ecf0f1;
+            }}
+        """)
+        self.original_pixmap = None
+    
+    def setCirclePixmap(self, pixmap):
+        """Set pixmap and make it circular."""
+        if pixmap and not pixmap.isNull():
+            self.original_pixmap = pixmap
+            # Scale pixmap to fit circle
+            scaled = pixmap.scaled(
+                self.circle_size - 4, self.circle_size - 4, 
+                Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation
+            )
+            
+            # Create circular mask
+            circular_pixmap = QPixmap(self.circle_size - 4, self.circle_size - 4)
+            circular_pixmap.fill(Qt.transparent)
+            
+            painter = QPainter(circular_pixmap)
+            painter.setRenderHint(QPainter.Antialiasing)
+            
+            # Create circular path
+            painter.setBrush(QBrush(scaled))
+            painter.setPen(Qt.NoPen)
+            painter.drawEllipse(0, 0, self.circle_size - 4, self.circle_size - 4)
+            
+            painter.end()
+            self.setPixmap(circular_pixmap)
+        else:
+            self.clear()
+
+class SwapCircleLabel(QLabel):
+    """Circle label that can show either a plus symbol or an image."""
+    
+    clicked = Signal()
+    
+    def __init__(self, size=80):
+        super().__init__()
+        self.circle_size = size
+        self.setFixedSize(size, size)
+        self.setAlignment(Qt.AlignCenter)
+        self.has_image = False
+        self.original_pixmap = None
+        self.setCursor(Qt.PointingHandCursor)
+        self.reset_to_plus()
+    
+    def reset_to_plus(self):
+        """Reset to plus state."""
+        self.has_image = False
+        self.original_pixmap = None
+        self.clear()
+        self.setText("+")
+        self.setStyleSheet(f"""
+            QLabel {{
+                border: 2px dashed #95a5a6;
+                border-radius: {self.circle_size//2}px;
+                background-color: #f8f9fa;
+                color: #7f8c8d;
+                font-size: 24px;
+                font-weight: bold;
+            }}
+            QLabel:hover {{
+                border-color: #3498db;
+                background-color: #e3f2fd;
+                color: #2196f3;
+            }}
+        """)
+    
+    def setCirclePixmap(self, pixmap):
+        """Set pixmap and make it circular."""
+        if pixmap and not pixmap.isNull():
+            self.has_image = True
+            self.original_pixmap = pixmap
+            self.setText("")  # Clear the "+" text
+            
+            # Scale pixmap to fit circle
+            scaled = pixmap.scaled(
+                self.circle_size - 4, self.circle_size - 4, 
+                Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation
+            )
+            
+            # Create circular mask
+            circular_pixmap = QPixmap(self.circle_size - 4, self.circle_size - 4)
+            circular_pixmap.fill(Qt.transparent)
+            
+            painter = QPainter(circular_pixmap)
+            painter.setRenderHint(QPainter.Antialiasing)
+            
+            # Create circular path
+            painter.setBrush(QBrush(scaled))
+            painter.setPen(Qt.NoPen)
+            painter.drawEllipse(0, 0, self.circle_size - 4, self.circle_size - 4)
+            
+            painter.end()
+            self.setPixmap(circular_pixmap)
+            
+            # Update styling for image state
+            self.setStyleSheet(f"""
+                QLabel {{
+                    border: 2px solid #27ae60;
+                    border-radius: {self.circle_size//2}px;
+                    background-color: #ecf0f1;
+                }}
+                QLabel:hover {{
+                    border-color: #229954;
+                }}
+            """)
+        else:
+            self.reset_to_plus()
+    
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit()
+        super().mousePressEvent(event)
+
+class FaceCard(QWidget):
+    """Widget displaying a face detection result with swap image selection."""
+    
     swap_image_selected = Signal(int, str)  # face_index, image_path
     
     def __init__(self, face_index: int, face_data: dict, parent=None):
-        """
-        Initialize face card widget.
-        
-        Args:
-            face_index: Index of this face in the unique faces list
-            face_data: Dictionary containing face image and metadata
-            parent: Parent widget
-        """
         super().__init__(parent)
         self.face_index = face_index
         self.face_data = face_data
         self.swap_image_path = None
-        
         self.setup_ui()
         self.load_face_image()
     
     def setup_ui(self):
-        """Set up the user interface for the face card."""
-        # Set up the main layout
+        """Set up the user interface with paired circles layout."""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(8)
+        layout.setSpacing(5)
         
-        # Create frame for styling
-        frame = QFrame()
-        frame.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
-        frame.setLineWidth(2)
-        frame_layout = QVBoxLayout(frame)
-        frame_layout.setContentsMargins(8, 8, 8, 8)
-        frame_layout.setSpacing(6)
+        # Face title
+        title_label = QLabel(f"Face #{self.face_index + 1}")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        title_label.setStyleSheet("color: #2c3e50; margin-bottom: 5px;")
+        layout.addWidget(title_label)
         
-        # Face index label
-        index_label = QLabel(f"Face #{self.face_index + 1}")
-        index_label.setAlignment(Qt.AlignCenter)
-        font = QFont()
-        font.setBold(True)
-        font.setPointSize(12)
-        index_label.setFont(font)
-        frame_layout.addWidget(index_label)
+        # Circles container
+        circles_layout = QHBoxLayout()
+        circles_layout.setSpacing(20)
+        circles_layout.setContentsMargins(5, 0, 5, 0)
         
-        # Face image display
-        self.face_label = QLabel()
-        self.face_label.setAlignment(Qt.AlignCenter)
-        self.face_label.setMinimumSize(150, 150)
-        self.face_label.setMaximumSize(200, 200)
-        self.face_label.setScaledContents(True)
-        self.face_label.setStyleSheet("""
-            QLabel {
-                border: 2px solid #cccccc;
-                border-radius: 8px;
-                background-color: #f0f0f0;
-            }
-        """)
-        frame_layout.addWidget(self.face_label)
+        # Original face circle
+        face_container = QVBoxLayout()
+        face_container.setSpacing(3)
         
-        # Swap image info
-        self.swap_info_label = QLabel("Swap with: None")
-        self.swap_info_label.setAlignment(Qt.AlignCenter)
-        self.swap_info_label.setWordWrap(True)
-        self.swap_info_label.setStyleSheet("color: #666666; font-size: 10px;")
-        frame_layout.addWidget(self.swap_info_label)
+        self.face_circle = CircleImageLabel(80)
+        self.face_circle.setMinimumSize(84, 84)  # Ensure minimum size
+        face_container.addWidget(self.face_circle, alignment=Qt.AlignCenter)
         
-        # Button layout
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(4)
+        face_label = QLabel("Detected")
+        face_label.setAlignment(Qt.AlignCenter)
+        face_label.setStyleSheet("color: #7f8c8d; font-size: 9px;")
+        face_container.addWidget(face_label)
         
-        # Select image button
-        self.select_button = QPushButton("Select Image...")
-        self.select_button.clicked.connect(self.select_swap_image)
-        self.select_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-            QPushButton:pressed {
-                background-color: #3d8b40;
-            }
-        """)
-        button_layout.addWidget(self.select_button)
+        circles_layout.addLayout(face_container)
         
-        # Clear button
+        # Arrow or connector
+        arrow_label = QLabel("→")
+        arrow_label.setAlignment(Qt.AlignCenter)
+        arrow_label.setStyleSheet("color: #95a5a6; font-size: 16px; font-weight: bold;")
+        arrow_label.setFixedWidth(15)
+        circles_layout.addWidget(arrow_label)
+        
+        # Swap image circle
+        swap_container = QVBoxLayout()
+        swap_container.setSpacing(3)
+        
+        self.swap_circle = SwapCircleLabel(80)
+        self.swap_circle.clicked.connect(self.select_swap_image)
+        self.swap_circle.setMinimumSize(84, 84)  # Ensure minimum size
+        swap_container.addWidget(self.swap_circle, alignment=Qt.AlignCenter)
+        
+        self.swap_label = QLabel("Add Swap")
+        self.swap_label.setAlignment(Qt.AlignCenter)
+        self.swap_label.setStyleSheet("color: #7f8c8d; font-size: 9px;")
+        swap_container.addWidget(self.swap_label)
+        
+        circles_layout.addLayout(swap_container)
+        
+        layout.addLayout(circles_layout)
+        
+        # Clear button (hidden initially)
         self.clear_button = QPushButton("Clear")
         self.clear_button.clicked.connect(self.clear_swap_image)
-        self.clear_button.setEnabled(False)
+        self.clear_button.setVisible(False)
         self.clear_button.setStyleSheet("""
             QPushButton {
-                background-color: #f44336;
+                background-color: #e74c3c;
                 color: white;
                 border: none;
-                padding: 8px 16px;
-                border-radius: 4px;
+                padding: 4px 12px;
+                border-radius: 3px;
+                font-size: 9px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #da190b;
-            }
-            QPushButton:pressed {
-                background-color: #c5150a;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-                color: #666666;
+                background-color: #c0392b;
             }
         """)
-        button_layout.addWidget(self.clear_button)
+        layout.addWidget(self.clear_button, alignment=Qt.AlignCenter)
         
-        frame_layout.addLayout(button_layout)
+        # Set fixed size for the card with more width for both circles
+        self.setFixedSize(240, 150)
+        self.setMinimumSize(240, 150)
         
-        # Add frame to main layout
-        layout.addWidget(frame)
-        
-        # Set size policy
-        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.setFixedSize(220, 300)
+        # Card styling
+        self.setStyleSheet("""
+            FaceCard {
+                background-color: white;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+            }
+            FaceCard:hover {
+                border-color: #3498db;
+            }
+        """)
     
     def load_face_image(self):
-        """Load and display the detected face image."""
+        """Load and display the detected face image in the circle."""
         try:
             face_image = self.face_data['image']
             
-            # Convert from RGB to BGR for Qt
-            if len(face_image.shape) == 3:
-                face_image_bgr = cv2.cvtColor(face_image, cv2.COLOR_RGB2BGR)
+            # Debug information
+            logger.debug(f"Loading face image {self.face_index}: shape={face_image.shape}, dtype={face_image.dtype}")
+            
+            # Ensure image is in the correct format
+            if len(face_image.shape) == 3 and face_image.shape[2] == 3:
+                # Image is already in BGR format from OpenCV
+                face_image_bgr = face_image.copy()
+            elif len(face_image.shape) == 3 and face_image.shape[2] == 4:
+                # Convert RGBA to BGR
+                face_image_bgr = cv2.cvtColor(face_image, cv2.COLOR_RGBA2BGR)
             else:
-                face_image_bgr = face_image
+                # Grayscale - convert to BGR
+                face_image_bgr = cv2.cvtColor(face_image, cv2.COLOR_GRAY2BGR)
             
-            # Convert to Qt format
-            height, width = face_image_bgr.shape[:2]
-            bytes_per_line = 3 * width if len(face_image_bgr.shape) == 3 else width
+            # Ensure the image data is in the correct range
+            if face_image_bgr.dtype != np.uint8:
+                if face_image_bgr.max() <= 1.0:
+                    face_image_bgr = (face_image_bgr * 255).astype(np.uint8)
+                else:
+                    face_image_bgr = face_image_bgr.astype(np.uint8)
             
-            if len(face_image_bgr.shape) == 3:
-                # Color image
-                q_image = QPixmap.fromImage(
-                    face_image_bgr.data, width, height, bytes_per_line
-                ).scaled(150, 150, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            else:
-                # Grayscale image
-                q_image = QPixmap.fromImage(
-                    face_image_bgr.data, width, height, bytes_per_line
-                ).scaled(150, 150, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            
-            # Alternative method using OpenCV to encode image
+            # Use OpenCV to encode image to JPEG format
             success, buffer = cv2.imencode('.jpg', face_image_bgr)
             if success:
+                # Load pixmap from encoded data
                 pixmap = QPixmap()
-                pixmap.loadFromData(buffer.tobytes())
-                scaled_pixmap = pixmap.scaled(150, 150, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                self.face_label.setPixmap(scaled_pixmap)
+                if pixmap.loadFromData(buffer.tobytes()):
+                    self.face_circle.setCirclePixmap(pixmap)
+                    logger.debug(f"Successfully loaded face image for face {self.face_index}")
+                else:
+                    logger.error(f"Failed to decode image data for face {self.face_index}")
             else:
-                self.face_label.setText("Failed to load face image")
+                logger.error(f"Failed to encode image for face {self.face_index}")
                 
         except Exception as e:
             logger.error(f"Error loading face image for face {self.face_index}: {e}")
-            self.face_label.setText("Error loading image")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
     
     def select_swap_image(self):
         """Open file dialog to select swap image."""
-        file_dialog = QFileDialog(self)
-        file_dialog.setWindowTitle("Select Swap Image")
-        file_dialog.setNameFilter("Image Files (*.jpg *.jpeg *.png *.bmp *.tiff *.tif)")
-        file_dialog.setFileMode(QFileDialog.ExistingFile)
+        image_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Swap Image",
+            "",
+            "Image Files (*.jpg *.jpeg *.png *.bmp *.tiff *.tif);;All Files (*)"
+        )
         
-        if file_dialog.exec():
-            selected_files = file_dialog.selectedFiles()
-            if selected_files:
-                image_path = selected_files[0]
-                self.set_swap_image(image_path)
+        if image_path:
+            self.set_swap_image(image_path)
     
     def set_swap_image(self, image_path: str):
-        """
-        Set the swap image for this face.
-        
-        Args:
-            image_path: Path to the swap image file
-        """
+        """Set the swap image for this face."""
         try:
-            # Validate that the image can be loaded
-            test_image = cv2.imread(image_path)
-            if test_image is None:
-                raise ValueError(f"Could not load image: {image_path}")
+            if not os.path.exists(image_path):
+                logger.error(f"Swap image file not found: {image_path}")
+                return
             
-            self.swap_image_path = image_path
-            
-            # Update UI
-            filename = os.path.basename(image_path)
-            if len(filename) > 25:
-                filename = filename[:22] + "..."
-            
-            self.swap_info_label.setText(f"Swap with: {filename}")
-            self.swap_info_label.setStyleSheet("color: #2e7d32; font-size: 10px; font-weight: bold;")
-            self.clear_button.setEnabled(True)
-            
-            # Update button appearance
-            self.select_button.setText("Change Image...")
-            self.select_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #2196F3;
-                    color: white;
-                    border: none;
-                    padding: 8px 16px;
-                    border-radius: 4px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #1976D2;
-                }
-                QPushButton:pressed {
-                    background-color: #1565C0;
-                }
-            """)
-            
-            # Emit signal
-            self.swap_image_selected.emit(self.face_index, image_path)
-            
-            logger.info(f"Swap image set for face {self.face_index}: {filename}")
-            
+            # Load and display the swap image
+            pixmap = QPixmap(image_path)
+            if not pixmap.isNull():
+                self.swap_circle.setCirclePixmap(pixmap)
+                
+                self.swap_image_path = image_path
+                self.swap_label.setText("Ready")
+                self.swap_label.setStyleSheet("color: #27ae60; font-size: 9px; font-weight: bold;")
+                self.clear_button.setVisible(True)
+                
+                # Emit signal
+                self.swap_image_selected.emit(self.face_index, image_path)
+                
+                logger.info(f"Swap image set for face {self.face_index}: {os.path.basename(image_path)}")
+            else:
+                logger.error(f"Failed to load swap image: {image_path}")
+                
         except Exception as e:
-            logger.error(f"Error setting swap image: {e}")
-            # Show error message could be added here
+            logger.error(f"Error setting swap image for face {self.face_index}: {e}")
     
     def clear_swap_image(self):
-        """Clear the assigned swap image."""
+        """Clear the swap image."""
+        # Reset swap circle to plus symbol
+        self.swap_circle.reset_to_plus()
+        
         self.swap_image_path = None
-        
-        # Update UI
-        self.swap_info_label.setText("Swap with: None")
-        self.swap_info_label.setStyleSheet("color: #666666; font-size: 10px;")
-        self.clear_button.setEnabled(False)
-        
-        # Reset button appearance
-        self.select_button.setText("Select Image...")
-        self.select_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-            QPushButton:pressed {
-                background-color: #3d8b40;
-            }
-        """)
+        self.swap_label.setText("Add Swap")
+        self.swap_label.setStyleSheet("color: #7f8c8d; font-size: 9px;")
+        self.clear_button.setVisible(False)
         
         # Emit signal with empty path
         self.swap_image_selected.emit(self.face_index, "")
         
         logger.info(f"Swap image cleared for face {self.face_index}")
     
-    def get_swap_image_path(self) -> str:
-        """
-        Get the path to the assigned swap image.
-        
-        Returns:
-            Path to swap image, or empty string if none assigned
-        """
-        return self.swap_image_path if self.swap_image_path else ""
-    
     def has_swap_image(self) -> bool:
-        """
-        Check if this face has a swap image assigned.
-        
-        Returns:
-            True if swap image is assigned, False otherwise
-        """
-        return self.swap_image_path is not None and self.swap_image_path != ""
+        """Check if this face has a swap image assigned."""
+        return self.swap_image_path is not None and os.path.exists(self.swap_image_path)
     
-    def update_face_data(self, face_data: dict):
-        """
-        Update the face data and refresh the display.
-        
-        Args:
-            face_data: Updated face data dictionary
-        """
-        self.face_data = face_data
-        self.load_face_image()
+    def get_swap_image_path(self) -> str:
+        """Get the path to the swap image."""
+        return self.swap_image_path if self.swap_image_path else ""
