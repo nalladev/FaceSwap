@@ -55,6 +55,37 @@ def test_data_dir():
     yield temp_dir
     shutil.rmtree(temp_dir, ignore_errors=True)
 
+@pytest.fixture
+def sample_face_image():
+    """Create a sample face image for testing."""
+    # Create a more realistic face-like image
+    image = np.zeros((300, 300, 3), dtype=np.uint8)
+    
+    # Add face-like features (simple geometric shapes)
+    # Face outline (circle)
+    cv2.circle(image, (150, 150), 100, (200, 180, 160), -1)
+    
+    # Eyes
+    cv2.circle(image, (120, 120), 15, (255, 255, 255), -1)
+    cv2.circle(image, (180, 120), 15, (255, 255, 255), -1)
+    cv2.circle(image, (120, 120), 8, (0, 0, 0), -1)
+    cv2.circle(image, (180, 120), 8, (0, 0, 0), -1)
+    
+    # Nose
+    cv2.circle(image, (150, 160), 8, (180, 160, 140), -1)
+    
+    # Mouth
+    cv2.ellipse(image, (150, 190), (20, 10), 0, 0, 180, (100, 50, 50), -1)
+    
+    return image
+
+@pytest.fixture
+def output_dir(tmp_path):
+    """Create a temporary output directory for tests."""
+    output_path = tmp_path / "output"
+    output_path.mkdir()
+    return str(output_path)
+
 # Pytest configuration
 def pytest_configure(config):
     """Configure pytest settings."""

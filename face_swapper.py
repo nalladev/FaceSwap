@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 import config
 
 # New utilities (optional dependencies handled inside modules)
-from utils.smoothing import LandmarkSmoother, smooth_polygon
+from utils.smoothing import LandmarkSmoother
 from utils import warps
 from utils import blending
 from utils import color_match

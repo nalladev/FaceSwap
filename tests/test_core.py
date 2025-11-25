@@ -13,25 +13,35 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 logger = logging.getLogger(__name__)
 
 class TestFaceDetection:
-    """Core face detection tests."""
+    """Test face detection functionality."""
     
     def test_face_detector_import(self):
         """Test that face detector can be imported."""
-        try:
-            from face_detector import FaceDetector
-            assert FaceDetector is not None
-        except ImportError:
-            pytest.skip("FaceDetector not available")
-    
+        from face_detector import FaceDetector
+        assert FaceDetector is not None
+
     def test_synthetic_face_detection(self, synthetic_face_image):
         """Test detection on synthetic face."""
         try:
             from face_detector import FaceDetector
-            detector = FaceDetector()
+            
+            # First try normal mode
+            try:
+                detector = FaceDetector()
+            except FileNotFoundError:
+                # Fall back to test mode if model files are missing
+                detector = FaceDetector(test_mode=True)
+                pytest.skip("Model files not available, using test mode")
+                
+            # Test that detection method exists and can be called
             faces = detector.detect_faces(synthetic_face_image)
-            assert isinstance(faces, (list, tuple, np.ndarray))
-        except ImportError:
-            pytest.skip("FaceDetector not available")
+            assert isinstance(faces, list)
+            
+            # Log result for debugging
+            logger.info(f"Detected {len(faces)} faces in synthetic image")
+            
+        except Exception as e:
+            pytest.fail(f"Face detection test failed: {e}")
 
 class TestVideoUtils:
     """Video utilities tests."""

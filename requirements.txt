@@ -14,3 +14,18 @@ psutil>=5.8.0
 
 # Optional dependencies (install if needed)
 scikit-image>=0.18.0
+
+# ML/AI Libraries for face swapping
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# Testing dependencies
+pytest>=7.0.0
+pytest-cov>=4.0.0
+memory-profiler>=0.61.0
+
+# Additional ML libraries (install as needed)
+# mediapipe>=0.10.0
+# insightface>=0.7.0
+# onnxruntime>=1.15.0

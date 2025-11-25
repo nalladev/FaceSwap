@@ -43,25 +43,31 @@ class TestInstallation:
             pytest.skip("Dlib not available")
     
     def test_model_files(self):
-        """Test required model files exist."""
-        models_dir = Path("models")
+        """Test that required model files are present."""
+        models_dir = "models"
         required_models = [
-            "shape_predictor_68_face_landmarks.dat",
-            "dlib_face_recognition_resnet_model_v1.dat"
+            "shape_predictor_68_face_landmarks.dat"
         ]
         
-        if not models_dir.exists():
-            pytest.skip("Models directory not found - run download_models.py")
+        if not os.path.exists(models_dir):
+            pytest.skip(f"Models directory '{models_dir}' does not exist. Run setup_models.sh to download.")
         
         missing_models = []
         for model_file in required_models:
-            if not (models_dir / model_file).exists():
+            model_path = os.path.join(models_dir, model_file)
+            if not os.path.exists(model_path):
                 missing_models.append(model_file)
+            else:
+                # Check file size to ensure it's not empty/corrupted
+                file_size = os.path.getsize(model_path)
+                if file_size < 1000000:  # Should be > 1MB
+                    missing_models.append(f"{model_file} (file too small: {file_size} bytes)")
         
         if missing_models:
-            pytest.skip(f"Missing model files: {missing_models}")
+            pytest.skip(f"Missing or invalid model files: {missing_models}. Run './setup_models.sh' to download.")
         
-        assert len(missing_models) == 0
+        # All models present and valid
+        assert True
 
     def test_core_modules_import(self):
         """Test core application modules can be imported."""

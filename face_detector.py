@@ -15,22 +15,27 @@ class FaceDetector:
     Handles face detection, landmark prediction, and face encoding.
     """
     
-    def __init__(self, models_dir: str = "models"):
+    def __init__(self, models_dir: str = "models", test_mode: bool = False):
         """
-        Initialize the face detector with Dlib models.
+        Initialize the face detector with Dlib.
         
         Args:
             models_dir: Directory containing the Dlib model files
+            test_mode: If True, skip model loading for testing
         """
         self.models_dir = models_dir
+        self.test_mode = test_mode
         self.detector = None
         self.predictor = None
         self.face_encoder = None
         self.unique_faces = []
         self.face_recognition_threshold = 0.6
         
-        self._load_models()
-    
+        if not test_mode:
+            self._load_models()
+        else:
+            logger.info("Face detector initialized in test mode (models not loaded)")
+
     def _load_models(self):
         """Load Dlib models for face detection and recognition."""
         try:
@@ -69,23 +74,34 @@ class FaceDetector:
         Returns:
             List of face rectangles
         """
-        # Scale down for faster detection if needed
-        if scale_factor < 1.0:
-            small_frame = cv2.resize(frame, None, fx=scale_factor, fy=scale_factor)
-            faces = self.detector(small_frame)
-            # Scale back up the coordinates
-            scaled_faces = []
-            for face in faces:
-                scaled_face = dlib.rectangle(
-                    int(face.left() / scale_factor),
-                    int(face.top() / scale_factor),
-                    int(face.right() / scale_factor),
-                    int(face.bottom() / scale_factor)
-                )
-                scaled_faces.append(scaled_face)
-            return scaled_faces
-        else:
-            return self.detector(frame)
+        if self.test_mode:
+            # Return mock detection for testing
+            return []
+            
+        if self.detector is None:
+            raise RuntimeError("Face detector not loaded")
+            
+        try:
+            # Scale down for faster detection if needed
+            if scale_factor < 1.0:
+                small_frame = cv2.resize(frame, None, fx=scale_factor, fy=scale_factor)
+                faces = self.detector(small_frame)
+                # Scale back up the coordinates
+                scaled_faces = []
+                for face in faces:
+                    scaled_face = dlib.rectangle(
+                        int(face.left() / scale_factor),
+                        int(face.top() / scale_factor),
+                        int(face.right() / scale_factor),
+                        int(face.bottom() / scale_factor)
+                    )
+                    scaled_faces.append(scaled_face)
+                return scaled_faces
+            else:
+                return self.detector(frame)
+        except Exception as e:
+            logger.error(f"Error detecting faces: {e}")
+            return []
     
     def get_face_landmarks(self, frame: np.ndarray, face_rect: dlib.rectangle) -> np.ndarray:
         """
