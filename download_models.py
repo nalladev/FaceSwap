@@ -34,7 +34,9 @@ logger = logging.getLogger(__name__)
 # Model configuration
 MODELS = {
     "shape_predictor_68_face_landmarks.dat": {
-        "url": "http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2",
+        # Updated URL - original may be unreliable
+        "url": "https://github.com/davisking/dlib-models/raw/master/shape_predictor_68_face_landmarks.dat.bz2",
+        "fallback_url": "http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2",
         "compressed_file": "shape_predictor_68_face_landmarks.dat.bz2",
         "description": "68-point facial landmark predictor",
         "size_mb": 99.7,
@@ -42,7 +44,8 @@ MODELS = {
         "sha256": None
     },
     "dlib_face_recognition_resnet_model_v1.dat": {
-        "url": "http://dlib.net/files/dlib_face_recognition_resnet_model_v1.dat.bz2",
+        "url": "https://github.com/davisking/dlib-models/raw/master/dlib_face_recognition_resnet_model_v1.dat.bz2",
+        "fallback_url": "http://dlib.net/files/dlib_face_recognition_resnet_model_v1.dat.bz2",
         "compressed_file": "dlib_face_recognition_resnet_model_v1.dat.bz2", 
         "description": "Face recognition ResNet model",
         "size_mb": 22.5,
@@ -57,39 +60,50 @@ def create_models_directory():
     logger.info(f"Models directory: {models_dir.absolute()}")
     return models_dir
 
-def download_file_with_progress(url, filename):
+def download_file_with_progress(url, filename, fallback_url=None):
     """
-    Download a file with progress reporting.
+    Download a file with progress reporting and fallback URL.
     
     Args:
-        url: URL to download from
+        url: Primary URL to download from
         filename: Local filename to save to
+        fallback_url: Fallback URL if primary fails
         
     Returns:
         bool: True if successful, False otherwise
     """
-    try:
-        logger.info(f"Downloading {filename}...")
-        
-        def progress_hook(block_num, block_size, total_size):
-            """Progress reporting hook."""
-            if total_size > 0:
-                percent = min(100, (block_num * block_size * 100) // total_size)
-                size_mb = total_size / (1024 * 1024)
-                downloaded_mb = (block_num * block_size) / (1024 * 1024)
-                print(f"\rProgress: {percent:3d}% ({downloaded_mb:.1f}/{size_mb:.1f} MB)", end="", flush=True)
-        
-        urllib.request.urlretrieve(url, filename, progress_hook)
-        print()  # New line after progress
-        logger.info(f"Downloaded: {filename}")
-        return True
-        
-    except urllib.error.URLError as e:
-        logger.error(f"Failed to download {filename}: {e}")
-        return False
-    except Exception as e:
-        logger.error(f"Unexpected error downloading {filename}: {e}")
-        return False
+    urls_to_try = [url]
+    if fallback_url:
+        urls_to_try.append(fallback_url)
+    
+    for attempt_url in urls_to_try:
+        try:
+            logger.info(f"Downloading {filename} from {attempt_url}...")
+            
+            def progress_hook(block_num, block_size, total_size):
+                """Progress reporting hook."""
+                if total_size > 0:
+                    percent = min(100, (block_num * block_size * 100) // total_size)
+                    size_mb = total_size / (1024 * 1024)
+                    downloaded_mb = (block_num * block_size) / (1024 * 1024)
+                    print(f"\rProgress: {percent:3d}% ({downloaded_mb:.1f}/{size_mb:.1f} MB)", end="", flush=True)
+            
+            urllib.request.urlretrieve(attempt_url, filename, progress_hook)
+            print()  # New line after progress
+            logger.info(f"Downloaded: {filename}")
+            return True
+            
+        except urllib.error.URLError as e:
+            logger.warning(f"Failed to download from {attempt_url}: {e}")
+            if attempt_url == urls_to_try[-1]:  # Last URL failed
+                logger.error(f"All download attempts failed for {filename}")
+                return False
+            continue
+        except Exception as e:
+            logger.warning(f"Unexpected error downloading from {attempt_url}: {e}")
+            continue
+    
+    return False
 
 def extract_bz2_file(compressed_file, output_file):
     """
@@ -177,27 +191,17 @@ def verify_file(file_path, expected_sha256=None):
     return True
 
 def cleanup_temp_files(temp_files):
-    """
-    Remove temporary files.
-    
-    Args:
-        temp_files: List of temporary file paths to remove
-    """
+    """Remove temporary files."""
     for temp_file in temp_files:
         try:
             if os.path.exists(temp_file):
                 os.remove(temp_file)
-                logger.info(f"Cleaned up: {temp_file}")
+                logger.info(f"Removed temporary file: {temp_file}")
         except Exception as e:
             logger.warning(f"Could not remove {temp_file}: {e}")
 
 def download_all_models():
-    """
-    Download and extract all required model files.
-    
-    Returns:
-        bool: True if all models downloaded successfully
-    """
+    """Download and extract all required model files."""
     # Create models directory
     models_dir = create_models_directory()
     
@@ -230,7 +234,8 @@ def download_all_models():
                     pass
         
         # Download compressed file
-        if not download_file_with_progress(config['url'], compressed_path):
+        fallback_url = config.get('fallback_url')
+        if not download_file_with_progress(config['url'], compressed_path, fallback_url):
             logger.error(f"Failed to download {model_file}")
             continue
         

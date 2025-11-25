@@ -7,6 +7,10 @@ try:
     SKIMAGE_AVAILABLE = True
 except Exception:
     SKIMAGE_AVAILABLE = False
+    # Log warning for missing optional dependency
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning("scikit-image not available - TPS warping disabled")
 
 
 def apply_affine_warp(src_img: np.ndarray, src_landmarks: np.ndarray,

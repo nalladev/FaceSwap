@@ -5,68 +5,70 @@ import cv2
 from pathlib import Path
 import tempfile
 import shutil
+import sys
 
-@pytest.fixture(scope="session")
-def test_data_dir():
-    """Create a temporary directory with test images."""
-    temp_dir = tempfile.mkdtemp(prefix="faceswap_test_")
-    
-    # Create sample test images
-    create_test_images(temp_dir)
-    
-    yield temp_dir
-    
-    # Cleanup
-    shutil.rmtree(temp_dir)
+# Add project root to path
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 @pytest.fixture
-def sample_face_image():
-    """Generate a sample image with a face-like pattern."""
-    img = np.zeros((400, 400, 3), dtype=np.uint8)
-    # Draw a simple face-like pattern
-    cv2.circle(img, (200, 200), 150, (255, 255, 255), -1)  # Face
-    cv2.circle(img, (170, 170), 20, (0, 0, 0), -1)  # Left eye
-    cv2.circle(img, (230, 170), 20, (0, 0, 0), -1)  # Right eye
-    cv2.ellipse(img, (200, 220), (30, 20), 0, 0, 180, (0, 0, 0), 2)  # Mouth
+def synthetic_face_image():
+    """Generate a synthetic face image for testing."""
+    img = np.zeros((200, 200, 3), dtype=np.uint8)
+    # Draw face-like pattern
+    cv2.circle(img, (100, 100), 70, (200, 200, 200), -1)  # Face
+    cv2.circle(img, (85, 85), 8, (0, 0, 0), -1)   # Left eye
+    cv2.circle(img, (115, 85), 8, (0, 0, 0), -1)  # Right eye
+    cv2.ellipse(img, (100, 110), (15, 8), 0, 0, 180, (0, 0, 0), 2)  # Mouth
+    return img
+
+@pytest.fixture
+def multi_face_image():
+    """Generate image with multiple faces."""
+    img = np.zeros((200, 300, 3), dtype=np.uint8)
+    # Face 1
+    cv2.circle(img, (75, 100), 50, (200, 200, 200), -1)
+    cv2.circle(img, (65, 85), 6, (0, 0, 0), -1)
+    cv2.circle(img, (85, 85), 6, (0, 0, 0), -1)
+    # Face 2
+    cv2.circle(img, (225, 100), 50, (200, 200, 200), -1)
+    cv2.circle(img, (215, 85), 6, (0, 0, 0), -1)
+    cv2.circle(img, (235, 85), 6, (0, 0, 0), -1)
     return img
 
 @pytest.fixture
 def empty_image():
-    """Generate an empty image with no faces."""
-    return np.zeros((300, 300, 3), dtype=np.uint8)
+    """Generate empty image with no faces."""
+    return np.zeros((200, 200, 3), dtype=np.uint8)
 
 @pytest.fixture
-def output_dir():
-    """Create a temporary output directory."""
-    temp_dir = tempfile.mkdtemp(prefix="faceswap_output_")
+def temp_output_dir():
+    """Create temporary output directory."""
+    temp_dir = Path(tempfile.mkdtemp(prefix="faceswap_test_"))
     yield temp_dir
-    shutil.rmtree(temp_dir)
+    shutil.rmtree(temp_dir, ignore_errors=True)
 
-def create_test_images(directory):
-    """Create various test images for different test scenarios."""
-    # Single face image
-    single_face = np.zeros((400, 400, 3), dtype=np.uint8)
-    cv2.circle(single_face, (200, 200), 150, (255, 255, 255), -1)
-    cv2.circle(single_face, (170, 170), 20, (0, 0, 0), -1)
-    cv2.circle(single_face, (230, 170), 20, (0, 0, 0), -1)
-    cv2.imwrite(os.path.join(directory, "single_face.jpg"), single_face)
-    
-    # Multiple faces image
-    multi_face = np.zeros((400, 600, 3), dtype=np.uint8)
-    # Face 1
-    cv2.circle(multi_face, (150, 200), 100, (255, 255, 255), -1)
-    cv2.circle(multi_face, (130, 180), 15, (0, 0, 0), -1)
-    cv2.circle(multi_face, (170, 180), 15, (0, 0, 0), -1)
-    # Face 2
-    cv2.circle(multi_face, (450, 200), 100, (255, 255, 255), -1)
-    cv2.circle(multi_face, (430, 180), 15, (0, 0, 0), -1)
-    cv2.circle(multi_face, (470, 180), 15, (0, 0, 0), -1)
-    cv2.imwrite(os.path.join(directory, "multi_face.jpg"), multi_face)
-    
-    # No face image
-    no_face = np.random.randint(0, 255, (300, 300, 3), dtype=np.uint8)
-    cv2.imwrite(os.path.join(directory, "no_face.jpg"), no_face)
-    
-    # Corrupted image (text file with jpg extension)
-    with open(os.path.join(directory, "corrupted.jpg"), "w") as f:
-        f.write("This is not an image")
+@pytest.fixture(scope="session")
+def test_data_dir():
+    """Create session-level test data directory."""
+    temp_dir = Path(tempfile.mkdtemp(prefix="faceswap_session_"))
+    yield temp_dir
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+# Pytest configuration
+def pytest_configure(config):
+    """Configure pytest settings."""
+    config.addinivalue_line("markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')")
+    config.addinivalue_line("markers", "gpu: marks tests as requiring GPU")
+    config.addinivalue_line("markers", "integration: marks tests as integration tests")
+
+def pytest_collection_modifyitems(config, items):
+    """Modify test collection to add markers automatically."""
+    for item in items:
+        # Mark slow tests
+        if "stress" in item.name.lower() or "memory" in item.name.lower():
+            item.add_marker(pytest.mark.slow)
+        
+        # Mark integration tests
+        if "integration" in item.name.lower() or "pipeline" in item.name.lower():
+            item.add_marker(pytest.mark.integration)

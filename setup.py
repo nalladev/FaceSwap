@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""
-Setup script for FaceSwap application.
-"""
+"""Setup script for FaceSwap application."""
 
 from setuptools import setup, find_packages
 from pathlib import Path
 import sys
+import platform
 
 # Read the README file
 this_directory = Path(__file__).parent
@@ -21,6 +20,28 @@ if requirements_file.exists():
 # Version
 version = "1.0.1"
 
+# Platform-specific requirements
+platform_requirements = []
+if platform.system() == "Windows":
+    platform_requirements.extend([
+        "opencv-python>=4.5.0",
+        # Windows-specific optimized builds
+    ])
+elif platform.system() == "Linux":
+    platform_requirements.extend([
+        "opencv-python>=4.5.0",
+        "scikit-image>=0.18.0",  # Optional advanced warping
+        "psutil>=5.8.0",  # Memory monitoring
+    ])
+elif platform.system() == "Darwin":  # macOS
+    platform_requirements.extend([
+        "opencv-python>=4.5.0",
+        "scikit-image>=0.18.0",
+    ])
+
+# Combine base and platform requirements
+all_requirements = requirements + platform_requirements
+
 setup(
     name="faceswap-local",
     version=version,
@@ -30,11 +51,6 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/your-username/FaceSwap",
-    project_urls={
-        "Bug Reports": "https://github.com/your-username/FaceSwap/issues",
-        "Source": "https://github.com/your-username/FaceSwap",
-        "Documentation": "https://github.com/your-username/FaceSwap/blob/main/README.md",
-    },
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -48,42 +64,27 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Operating System :: OS Independent",
-        "Environment :: X11 Applications :: Qt",
     ],
     python_requires=">=3.8",
-    install_requires=requirements,
+    install_requires=all_requirements,
     extras_require={
         "dev": [
             "pytest>=6.0",
-            "pytest-cov>=2.0",
             "black>=22.0",
             "flake8>=4.0",
-            "mypy>=0.950",
         ],
-        "build": [
-            "pyinstaller>=5.0",
-            "wheel>=0.37",
-            "setuptools>=60.0",
-        ]
     },
     entry_points={
         "console_scripts": [
             "faceswap=main:main",
         ],
-        "gui_scripts": [
-            "faceswap-gui=main:main",
-        ],
     },
     include_package_data=True,
     package_data={
-        "": ["*.md", "*.txt", "*.yml", "*.yaml"],
-        "gui": ["*.ui", "*.qrc"],
+        "": ["*.md", "*.txt"],
+        "gui": ["*.ui"],
         "assets": ["*.png", "*.jpg", "*.ico"],
     },
-    data_files=[
-        ("share/applications", ["assets/faceswap.desktop"]) if sys.platform.startswith("linux") else None,
-        ("share/pixmaps", ["assets/faceswap.png"]) if sys.platform.startswith("linux") else None,
-    ],
     zip_safe=False,
     keywords=[
         "face-swap",

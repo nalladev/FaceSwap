@@ -2,20 +2,6 @@
 """
 FaceSwap - Local Face Swapping Tool
 Main application entry point.
-
-This is the main entry point for the FaceSwap application. It initializes the
-PySide6 GUI application and launches the main window.
-
-Usage:
-    python main.py
-
-Requirements:
-    - Python 3.8+
-    - PySide6
-    - OpenCV
-    - Dlib
-    - NumPy
-    - Required Dlib model files in models/ directory
 """
 
 import sys
@@ -23,9 +9,8 @@ import os
 import logging
 from pathlib import Path
 from PySide6.QtWidgets import QApplication, QMessageBox
-from PySide6.QtCore import Qt, QDir
-from PySide6.QtGui import QIcon, QPixmap
-from utils.gpu_utils import gpu_manager
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QIcon
 
 # Add project root to Python path
 project_root = Path(__file__).parent
@@ -34,51 +19,50 @@ sys.path.insert(0, str(project_root))
 from gui.main_window import MainWindow
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 def setup_logging():
     """Set up logging configuration."""
     log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    
+    # Create logs directory
+    logs_dir = project_root / "logs"
+    logs_dir.mkdir(exist_ok=True)
+    
     logging.basicConfig(
         level=logging.INFO,
         format=log_format,
         handlers=[
             logging.StreamHandler(),
-            logging.FileHandler('faceswap.log')
+            logging.FileHandler(logs_dir / 'faceswap.log')
         ]
     )
 
-def check_requirements():
-    """
-    Check if all required dependencies and files are available.
+logger = logging.getLogger(__name__)
 
-    Returns:
-        tuple: (success: bool, error_message: str)
-    """
+def check_requirements():
+    """Check if all required dependencies and files are available."""
     try:
         # Check Python version
         if sys.version_info < (3, 8):
             return False, "Python 3.8 or higher is required"
 
         # Check required packages
-        required_packages = [
-            ('cv2', 'opencv-python'),
-            ('dlib', 'dlib'),
-            ('numpy', 'numpy'),
-            ('PySide6', 'PySide6')
-        ]
-
+        required_packages = ['cv2', 'dlib', 'numpy', 'PySide6']
         missing_packages = []
-        for package, pip_name in required_packages:
+        
+        for package in required_packages:
             try:
                 __import__(package)
             except ImportError:
-                missing_packages.append(pip_name)
+                missing_packages.append(package)
 
         if missing_packages:
-            return False, f"Missing required packages: {', '.join(missing_packages)}\n" \
-                         f"Install with: pip install {' '.join(missing_packages)}"
+            pip_names = {
+                'cv2': 'opencv-python',
+                'PySide6': 'PySide6'
+            }
+            missing_pip = [pip_names.get(pkg, pkg) for pkg in missing_packages]
+            return False, f"Missing packages: {', '.join(missing_pip)}\n" \
+                         f"Install with: pip install {' '.join(missing_pip)}"
 
         # Check for required model files
         models_dir = project_root / "models"
@@ -94,24 +78,9 @@ def check_requirements():
                 missing_models.append(model_file)
 
         if missing_models:
-            model_urls = {
-                "shape_predictor_68_face_landmarks.dat":
-                    "http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2",
-                "dlib_face_recognition_resnet_model_v1.dat":
-                    "http://dlib.net/files/dlib_face_recognition_resnet_model_v1.dat.bz2"
-            }
-
-            error_msg = f"Missing required model files in {models_dir}:\n\n"
-            for model in missing_models:
-                error_msg += f"• {model}\n"
-                if model in model_urls:
-                    error_msg += f"  Download: {model_urls[model]}\n"
-
-            error_msg += f"\nCreate the models directory and download the required files:\n"
-            error_msg += f"mkdir -p {models_dir}\n"
-            error_msg += f"# Download and extract the .dat files to the models directory"
-
-            return False, error_msg
+            return False, f"Missing model files in {models_dir}:\n" \
+                         f"{', '.join(missing_models)}\n\n" \
+                         f"Run: python download_models.py"
 
         return True, "All requirements satisfied"
 
@@ -119,21 +88,7 @@ def check_requirements():
         return False, f"Error checking requirements: {str(e)}"
 
 def create_application():
-    """
-    Create and configure the QApplication.
-
-    Returns:
-        QApplication: Configured application instance
-    """
-    # Set application attributes before creating QApplication
-    # High DPI scaling is enabled by default in Qt 6, so these attributes are deprecated
-    # QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)  # Deprecated in Qt 6
-    # QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)     # Deprecated in Qt 6
-
-    # Force native file dialogs (PopOS system dialogs)
-    # Note: By default, Qt uses native dialogs, but we ensure it's not disabled
-    pass  # Native dialogs should be used by default
-
+    """Create and configure the QApplication."""
     app = QApplication(sys.argv)
 
     # Set application properties
@@ -141,43 +96,29 @@ def create_application():
     app.setApplicationDisplayName("FaceSwap - Local Face Swapping Tool")
     app.setApplicationVersion("1.0.1")
     app.setOrganizationName("FaceSwap")
-    app.setOrganizationDomain("faceswap.local")
 
     # Set application icon if available
     icon_path = project_root / "assets" / "icon.png"
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
 
-    # Set application style
-    app.setStyle("Fusion")  # Modern cross-platform style
-
     return app
 
 def show_error_dialog(title: str, message: str):
-    """
-    Show an error dialog without creating a full application.
-
-    Args:
-        title: Dialog title
-        message: Error message to display
-    """
+    """Show an error dialog."""
     app = QApplication(sys.argv)
-
     msg_box = QMessageBox()
     msg_box.setIcon(QMessageBox.Critical)
     msg_box.setWindowTitle(title)
     msg_box.setText(title)
     msg_box.setDetailedText(message)
     msg_box.setStandardButtons(QMessageBox.Ok)
-
     msg_box.exec()
 
 def main():
     """Main application entry point."""
     # Set up logging
     setup_logging()
-    logger = logging.getLogger(__name__)
-
     logger.info("Starting FaceSwap application...")
     logger.info(f"Python version: {sys.version}")
     logger.info(f"Project root: {project_root}")
@@ -196,33 +137,19 @@ def main():
         app = create_application()
         logger.info("QApplication created successfully")
 
-        # Log GPU information
-        logger.info(f"Using device: {gpu_manager.device}")
-        logger.info(f"Device type: {gpu_manager.device_type}")
-        logger.info(f"Optimal batch size: {gpu_manager.get_optimal_batch_size()}")
-        logger.info(f"OpenCV GPU support: {gpu_manager.opencv_gpu}")
-
-        # Initialize GPU-accelerated components
-        from face_swap import FaceDetector, FaceSwapper
-        detector = FaceDetector()
-        swapper = FaceSwapper()
-
         # Create and show main window
         main_window = MainWindow()
         main_window.show()
 
-        logger.info("Main window created and shown")
-        logger.info("Application ready - waiting for user interaction")
+        logger.info("Application ready")
 
         # Run application event loop
         exit_code = app.exec()
-
         logger.info(f"Application exiting with code: {exit_code}")
         return exit_code
 
     except ImportError as e:
-        error_msg = f"Import error: {str(e)}\n\nPlease ensure all required packages are installed:\n" \
-                   f"pip install -r requirements.txt"
+        error_msg = f"Import error: {str(e)}\n\nInstall requirements:\npip install -r requirements.txt"
         logger.error(error_msg)
         show_error_dialog("Import Error", error_msg)
         return 1
@@ -236,7 +163,5 @@ def main():
 if __name__ == "__main__":
     # Ensure we're running from the correct directory
     os.chdir(project_root)
-
-    # Run the application
     exit_code = main()
     sys.exit(exit_code)

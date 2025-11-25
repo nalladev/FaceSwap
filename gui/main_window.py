@@ -437,19 +437,19 @@ class MainWindow(QMainWindow):
             self.face_detector = FaceDetector()
             self.face_swapper = FaceSwapper()
             
-            # Create Videos/FaceSwap directory in user's home folder
-            videos_dir = os.path.expanduser("~/Videos/FaceSwap")
-            os.makedirs(videos_dir, exist_ok=True)
-            logger.info(f"Created output directory: {videos_dir}")
+            # Create output directory
+            output_dir = os.path.expanduser("~/Videos/FaceSwap")
+            os.makedirs(output_dir, exist_ok=True)
+            logger.info(f"Output directory ready: {output_dir}")
             
-            logger.info("Face detection and swapping engines initialized successfully")
+            logger.info("Engines initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize engines: {e}")
             QMessageBox.critical(
                 self, 
                 "Initialization Error", 
                 f"Failed to initialize face processing engines:\n\n{str(e)}\n\n"
-                "Please ensure the required model files are installed in the 'models' directory."
+                "Ensure model files are downloaded:\npython download_models.py"
             )
             sys.exit(1)
     

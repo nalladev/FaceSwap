@@ -177,20 +177,8 @@ class FaceSwapper:
     
     def align_face_simple(self, src_image: np.ndarray, src_landmarks: np.ndarray,
                          dst_landmarks: np.ndarray, frame_shape: Tuple[int, int]) -> np.ndarray:
-        """
-        Simple face alignment using affine transformation on key points.
-        
-        Args:
-            src_image: Source face image
-            src_landmarks: Source face landmarks
-            dst_landmarks: Target face landmarks
-            frame_shape: Target frame shape
-            
-        Returns:
-            Aligned face image
-        """
+        """Simple face alignment using affine transformation on key points."""
         # Use key facial points for alignment (eyes and mouth)
-        # Left eye center, right eye center, mouth center
         src_points = np.array([
             np.mean(src_landmarks[36:42], axis=0),  # Left eye
             np.mean(src_landmarks[42:48], axis=0),  # Right eye
