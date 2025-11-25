@@ -239,51 +239,88 @@ jobs:
         body: |
           ## FaceSwap ${{ steps.tag.outputs.TAG_NAME }}
 
-          ### What's New
-          - Local face swapping with advanced computer vision
-          - No cloud dependencies - everything runs on your machine
-          - Intuitive GUI built with PySide6
-          - High-quality results using Poisson blending
-          - Support for multiple video formats
+          ### What's New in This Release
+          - **Enhanced Documentation**: Updated README with accurate repository URLs and improved installation instructions
+          - **Streamlined CI/CD**: Improved GitHub Actions workflow for reliable cross-platform builds
+          - **Robust Build System**: Enhanced PyInstaller configuration with proper dependency bundling
+          - **Better Error Handling**: Improved import validation and dependency checking during builds
+          - **Updated Dependencies**: 
+            - Python 3.9 runtime
+            - OpenCV 4.8.1.78 for video processing
+            - Dlib 19.24.2 for face detection and recognition
+            - PySide6 6.6.0 for modern GUI
+            - NumPy 1.24.3 and Pillow 10.0.1 for image processing
+
+          ### Features
+          - **100% Local Processing**: No cloud dependencies - everything runs on your machine
+          - **Automatic Face Detection**: Advanced face detection and clustering using Dlib
+          - **Intuitive GUI**: Modern interface built with PySide6/Qt
+          - **High-Quality Results**: Seamless face swapping with Poisson blending
+          - **Cross-Platform**: Windows and Linux executables included
+          - **Multiple Format Support**: Works with MP4, AVI, MOV, MKV and other video formats
 
           ### Installation
 
           #### Windows
           1. Download `FaceSwap-Windows-x64.zip`
-          2. Extract the archive
+          2. Extract the archive to any folder
           3. Run `FaceSwap.exe`
+          4. **No Python installation required!**
 
           #### Linux
           1. Download `FaceSwap-Linux-x64.tar.gz`
           2. Extract: `tar -xzf FaceSwap-Linux-x64.tar.gz`
-          3. Run: `./FaceSwap/FaceSwap`
+          3. Make executable: `chmod +x FaceSwap/FaceSwap`
+          4. Run: `./FaceSwap/FaceSwap`
 
           ### System Requirements
-          - **OS**: Windows 10+, Ubuntu 18.04+
-          - **RAM**: 4GB minimum, 8GB recommended
-          - **CPU**: Multi-core processor recommended
-          - **Storage**: 2GB free space
+          - **OS**: Windows 10+ or Ubuntu 18.04+
+          - **RAM**: 4GB minimum, 8GB recommended for large videos
+          - **CPU**: Multi-core processor recommended for faster processing
+          - **Storage**: 2GB free space for application and models
+          - **GPU**: Not required - uses CPU-only processing
 
-          ### Usage
-          1. Select a video file
-          2. Scan for faces (this may take a few minutes)
-          3. Assign swap images to detected faces
-          4. Process the video
-          5. Find your swapped video in ~/Videos/
+          ### Quick Start Guide
+          1. **Launch** FaceSwap application
+          2. **Select Video**: Choose your input video file
+          3. **Scan for Faces**: Detect and group unique faces (may take a few minutes)
+          4. **Assign Swap Images**: Select replacement face images for detected faces
+          5. **Process Video**: Generate your face-swapped video
+          6. **Results**: Find output video in `~/Videos/faceswap_output.mp4`
 
-          ### Notes
-          - First run may take longer as models are loaded
-          - Processing time depends on video length and resolution
-          - For best results, use high-quality source images with clear faces
-          - The tool works entirely offline - no internet required after download
+          ### Performance Tips
+          - **Video Length**: 1-minute 1080p videos take ~5-15 minutes to process
+          - **Memory**: Close other applications during processing for best performance  
+          - **Quality**: Use high-resolution, well-lit source images for better results
+          - **Speed**: Lower resolution videos process faster
 
-          ### Troubleshooting
-          - If you encounter issues, check the log file in the application directory
-          - Ensure your system meets the minimum requirements
-          - Try reducing video resolution for faster processing
+          ### Technical Details
+          - **Face Detection**: Uses Dlib's 68-point facial landmark detection
+          - **Face Recognition**: 128-dimensional face embeddings for grouping
+          - **Blending**: OpenCV's Poisson seamless cloning for natural results
+          - **Architecture**: Modular design with separate detection, swapping, and GUI components
+
+          ### Known Issues & Limitations
+          - First run may be slower as models load into memory
+          - Processing time scales with video length and resolution
+          - Works best with clear, front-facing faces in good lighting
+          - Large videos (>10 minutes) may require significant processing time
+
+          ### Development & Source Code
+          - **Repository**: https://github.com/ZacharyJoyner/faceswap
+          - **Installation**: `pip install -r requirements.txt` after cloning
+          - **Models**: Automatically downloaded on first run or manually via provided script
+          - **Contributing**: Pull requests and issues welcome!
+
+          ### Security & Privacy
+          - **Local Processing**: Your videos never leave your computer
+          - **No Telemetry**: No data collection or internet connectivity required after download
+          - **Open Source**: Full source code available for audit and modification
 
           ---
-          **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.tag.outputs.TAG_NAME }}...v${{ steps.tag.outputs.TAG_NAME }}
+          **⚠️ Ethical Use Disclaimer**: This tool is for educational, creative, and entertainment purposes. Always obtain consent before processing videos containing other people. Users are responsible for complying with applicable laws and using this tool ethically.
+
+          **Full Changelog**: https://github.com/ZacharyJoyner/faceswap/compare/v${{ steps.tag.outputs.TAG_NAME }}...v${{ steps.tag.outputs.TAG_NAME }}
         files: |
           ./FaceSwap-Linux-x64/FaceSwap-Linux-x64.tar.gz
           ./FaceSwap-Windows-x64/FaceSwap-Windows-x64.zip

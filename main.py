@@ -25,6 +25,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtCore import Qt, QDir
 from PySide6.QtGui import QIcon, QPixmap
+from utils.gpu_utils import gpu_manager
 
 # Add project root to Python path
 project_root = Path(__file__).parent
@@ -33,6 +34,9 @@ sys.path.insert(0, str(project_root))
 from gui.main_window import MainWindow
 
 # Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 def setup_logging():
     """Set up logging configuration."""
     log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -191,6 +195,17 @@ def main():
         # Create application
         app = create_application()
         logger.info("QApplication created successfully")
+
+        # Log GPU information
+        logger.info(f"Using device: {gpu_manager.device}")
+        logger.info(f"Device type: {gpu_manager.device_type}")
+        logger.info(f"Optimal batch size: {gpu_manager.get_optimal_batch_size()}")
+        logger.info(f"OpenCV GPU support: {gpu_manager.opencv_gpu}")
+
+        # Initialize GPU-accelerated components
+        from face_swap import FaceDetector, FaceSwapper
+        detector = FaceDetector()
+        swapper = FaceSwapper()
 
         # Create and show main window
         main_window = MainWindow()

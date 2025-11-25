@@ -7,6 +7,13 @@ import logging
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+import config
+
+# New utilities (optional dependencies handled inside modules)
+from utils.smoothing import LandmarkSmoother, smooth_polygon
+from utils import warps
+from utils import blending
+from utils import color_match
 
 class FaceSwapper:
     """
@@ -15,8 +22,17 @@ class FaceSwapper:
     """
     
     def __init__(self):
-        """Initialize the face swapper."""
-        self.blend_method = cv2.NORMAL_CLONE
+        """Initialize the face swapper and configure smoothing/warping/blending."""
+        self.blend_method = getattr(config, 'BLEND_METHOD', cv2.NORMAL_CLONE)
+        self.warp_mode = getattr(config, 'WARP_MODE', 'delaunay')
+        self.smooth_method = getattr(config, 'SMOOTHING_METHOD', 'one_euro')
+        self.smooth_params = getattr(config, 'SMOOTHING_PARAMS', {})
+        self.blend_mode = getattr(config, 'BLEND_MODE', 'laplacian')
+        self.laplacian_levels = getattr(config, 'LAPLACIAN_LEVELS', 4)
+        self.adaptive_feather = getattr(config, 'ADAPTIVE_FEATHER_RADIUS', 20)
+        self.enable_color = getattr(config, 'ENABLE_COLOR_MATCHING', True)
+        self.color_strength = getattr(config, 'COLOR_MATCH_STRENGTH', 0.9)
+        self.color_temporal_alpha = getattr(config, 'COLOR_TEMPORAL_ALPHA', 0.6)
         
     def get_convex_hull_mask(self, landmarks: np.ndarray, frame_shape: Tuple[int, int]) -> np.ndarray:
         """
@@ -251,10 +267,18 @@ class FaceSwapper:
         # Create base mask
         mask = self.get_convex_hull_mask(landmarks, frame_shape)
         
-        # Apply Gaussian blur for feathering
+        # Apply adaptive feathering for laplacian blending or Gaussian blur as fallback
+        try:
+            if self.blend_mode == 'laplacian':
+                feather = blending.create_adaptive_feather_mask(mask, feather_radius=self.adaptive_feather)
+                return feather
+        except Exception:
+            # fallback to gaussian blur
+            pass
+
         if feather_amount > 0:
             mask = cv2.GaussianBlur(mask, (feather_amount * 2 + 1, feather_amount * 2 + 1), 0)
-        
+
         return mask
     
     def swap_face(self, target_frame: np.ndarray, target_landmarks: np.ndarray,
@@ -275,47 +299,46 @@ class FaceSwapper:
             # Create a copy of the target frame
             result_frame = target_frame.copy()
             
-            # Step 1: Align source face to target landmarks
-            aligned_source = self.align_face_simple(
-                source_image, source_landmarks, target_landmarks, target_frame.shape
-            )
-            
-            # Step 2: Create mask for blending
+            # Step 1: Warp source face to target landmarks using configured warp
+            try:
+                if self.warp_mode == 'affine':
+                    aligned_source = warps.apply_affine_warp(source_image, source_landmarks, target_landmarks, target_frame.shape)
+                elif self.warp_mode == 'tps':
+                    aligned_source = warps.warp_tps(source_image, source_landmarks, target_landmarks, target_frame.shape)
+                else:
+                    aligned_source = warps.warp_delaunay(source_image, source_landmarks, target_landmarks, target_frame.shape)
+            except Exception as e:
+                logger.warning(f"Warping ({self.warp_mode}) failed, falling back to simple affine: {e}")
+                aligned_source = self.align_face_simple(source_image, source_landmarks, target_landmarks, target_frame.shape)
+
+            # Step 2: Create mask for blending (smoothed landmarks are handled by caller)
             mask = self.create_seamless_mask(target_landmarks, target_frame.shape, feather_amount=6)
-            
-            # Step 3: Get center point for seamless cloning
-            center = np.mean(target_landmarks, axis=0).astype(int)
-            center = tuple(center)
-            
-            # Step 4: Apply color correction
+
+            # Step 3: Center for poisson clone
+            center = tuple(np.mean(target_landmarks, axis=0).astype(int))
+
+            # Step 4: Color matching (optional)
             target_face_region = self.extract_face_region(target_frame, target_landmarks)
             source_face_region = self.extract_face_region(aligned_source, target_landmarks)
-            
-            if target_face_region is not None and source_face_region is not None:
-                aligned_source_corrected = self.color_correct_face(
-                    aligned_source, target_frame, target_landmarks
-                )
+
+            if self.enable_color and target_face_region is not None and source_face_region is not None:
+                try:
+                    aligned_source_corrected = color_match.match_histograms_lab(aligned_source, target_frame, strength=self.color_strength)
+                except Exception:
+                    aligned_source_corrected = self.color_correct_face(aligned_source, target_frame, target_landmarks)
             else:
                 aligned_source_corrected = aligned_source
-            
-            # Step 5: Seamless cloning (Poisson blending)
-            try:
-                result_frame = cv2.seamlessClone(
-                    aligned_source_corrected,
-                    result_frame,
-                    mask,
-                    center,
-                    self.blend_method
-                )
-            except cv2.error as e:
-                logger.warning(f"Seamless cloning failed, using simple blending: {e}")
-                # Fallback to simple alpha blending
-                mask_norm = mask.astype(np.float32) / 255.0
-                mask_norm = np.stack([mask_norm] * 3, axis=2)
-                
-                result_frame = (aligned_source_corrected * mask_norm + 
-                              target_frame * (1 - mask_norm)).astype(np.uint8)
-            
+
+            # Step 5: Blending
+            if self.blend_mode == 'laplacian':
+                try:
+                    result_frame = blending.laplacian_blend(aligned_source_corrected, result_frame, mask, levels=self.laplacian_levels)
+                except Exception as e:
+                    logger.warning(f"Laplacian blending failed, falling back to Poisson/alpha: {e}")
+                    result_frame = blending.poisson_clone(aligned_source_corrected, result_frame, mask, center, flags=self.blend_method)
+            else:
+                result_frame = blending.poisson_clone(aligned_source_corrected, result_frame, mask, center, flags=self.blend_method)
+
             return result_frame
             
         except Exception as e:
@@ -382,11 +405,32 @@ class FaceSwapper:
                     # Find matching unique face
                     matched_face = face_detector.get_face_match(face_encoding)
                     
-                    if matched_face and matched_face['swap_image'] is not None:
-                        # Perform face swap
+                    if matched_face and matched_face.get('swap_image') is not None:
+                        # Ensure per-face smoothing objects exist
+                        if 'landmark_smoother' not in matched_face:
+                            matched_face['landmark_smoother'] = LandmarkSmoother(method=self.smooth_method, **self.smooth_params.get(self.smooth_method, {}))
+                        if 'mask_smoother' not in matched_face:
+                            mask_method = getattr(config, 'MASK_SMOOTH_METHOD', self.smooth_method)
+                            matched_face['mask_smoother'] = LandmarkSmoother(method=mask_method, **self.smooth_params.get(mask_method, {}))
+                        if 'color_smoother' not in matched_face:
+                            matched_face['color_smoother'] = color_match.TemporalColorSmoother(alpha=self.color_temporal_alpha)
+
+                        # Smooth landmarks temporally to stabilize warps
+                        try:
+                            smoothed_landmarks = matched_face['landmark_smoother'].smooth(landmarks)
+                        except Exception:
+                            smoothed_landmarks = landmarks
+
+                        # Smooth mask shape (polygon) to avoid jitter
+                        try:
+                            smoothed_mask_landmarks = matched_face['mask_smoother'].smooth(landmarks)
+                        except Exception:
+                            smoothed_mask_landmarks = landmarks
+
+                        # Perform face swap using smoothed mask landmarks (warps will use target landmarks internally)
                         frame = self.swap_face(
                             frame,
-                            landmarks,
+                            smoothed_mask_landmarks,
                             matched_face['swap_image'],
                             matched_face['swap_landmarks']
                         )

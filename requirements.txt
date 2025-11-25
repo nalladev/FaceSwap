@@ -3,3 +3,22 @@ dlib>=19.24.0
 PySide6>=6.6.0
 numpy>=1.24.0
 Pillow>=10.0.0
+
+# GPU acceleration support
+torch>=2.0.0
+torchvision>=0.15.0
+# CUDA support (automatically installed if CUDA available)
+torch[cuda]
+
+# Face detection with GPU support
+facenet-pytorch>=2.5.0
+
+# Optional: OpenCV with CUDA support
+# opencv-contrib-python>=4.8.0
+
+# ROCm support for AMD GPUs (uncomment if needed)
+# torch-rocm>=2.0.0
+
+# Additional GPU utilities
+nvidia-ml-py3>=11.0.0  # For NVIDIA GPU monitoring
+psutil>=5.9.0  # For system monitoring

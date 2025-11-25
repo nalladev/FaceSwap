@@ -96,6 +96,54 @@ BLEND_METHOD = cv2.NORMAL_CLONE
 # Higher values = smoother blending, more processing time
 MASK_FEATHER_AMOUNT = 6
 
+# Warp mode: 'affine', 'delaunay', 'tps'
+WARP_MODE = 'delaunay'
+
+# Smoothing configuration for landmarks and masks
+SMOOTHING_METHOD = 'one_euro'  # options: 'one_euro', 'kalman', 'ema'
+SMOOTHING_PARAMS = {
+    'one_euro': {
+        'freq': 30.0,
+        'min_cutoff': 1.0,
+        'beta': 0.002,
+        'd_cutoff': 1.0
+    },
+    'ema': {
+        'alpha': 0.4
+    },
+    'kalman': {
+        'process_var': 1e-3,
+        'measure_var': 1e-1
+    }
+}
+
+# Strength of smoothing when applied (0.0 - 1.0 scale interpreted by modules)
+SMOOTHING_STRENGTH = 1.0
+
+# Choose blending mode for improved blending: 'laplacian' or 'poisson'
+BLEND_MODE = 'laplacian'
+
+# Laplacian pyramid levels
+LAPLACIAN_LEVELS = 4
+
+# Adaptive feather radius for mask (pixels)
+ADAPTIVE_FEATHER_RADIUS = 20
+
+# Color matching options
+ENABLE_COLOR_MATCHING = True
+COLOR_MATCH_STRENGTH = 0.9
+# Temporal smoothing alpha for color params (0..1)
+COLOR_TEMPORAL_ALPHA = 0.6
+
+# Mask smoothing options
+MASK_SMOOTH_METHOD = 'one_euro'  # 'one_euro' or 'ema' or 'kalman'
+MASK_SMOOTH_PARAMS = SMOOTHING_PARAMS.get(MASK_SMOOTH_METHOD, {})
+
+# Subregion refinement (micro-affine) toggle and params
+ENABLE_SUBREGION_REFINEMENT = True
+SUBREGION_REGIONS = ['left_eye', 'right_eye', 'mouth', 'nose']
+SUBREGION_PADDING = 6
+
 # Color correction strength (0.0 - 1.0)
 # 0.0 = no color correction
 # 1.0 = full color matching

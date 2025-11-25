@@ -1,7 +1,7 @@
 # FaceSwap - Local Face Swapping Tool
 
-[![Build Status](https://github.com/your-username/FaceSwap/workflows/Build%20and%20Release%20FaceSwap/badge.svg)](https://github.com/your-username/FaceSwap/actions)
-[![Linux Build](https://github.com/your-username/FaceSwap/workflows/Build%20FaceSwap%20with%20Conda%20(Alternative)/badge.svg)](https://github.com/your-username/FaceSwap/actions)
+[![Build Status](https://github.com/ZacharyJoyner/faceswap/workflows/Build%20and%20Release%20FaceSwap/badge.svg)](https://github.com/ZacharyJoyner/faceswap/actions)
+[![Linux Build](https://github.com/ZacharyJoyner/faceswap/workflows/Build%20FaceSwap%20with%20Conda%20(Alternative)/badge.svg)](https://github.com/ZacharyJoyner/faceswap/actions)
 
 A powerful, local face swapping application built with Python, OpenCV, and Dlib. This tool allows you to swap faces in videos using advanced computer vision techniques, all running locally on your machine without any cloud dependencies.
 
@@ -12,13 +12,13 @@ A powerful, local face swapping application built with Python, OpenCV, and Dlib.
 **Just want to use the app? Download the pre-built executable:**
 
 #### Windows
-1. **Download**: [FaceSwap-Windows-x64.zip](https://github.com/your-username/FaceSwap/releases/latest/download/FaceSwap-Windows-x64.zip)
+1. **Download**: [FaceSwap-Windows-x64.zip](https://github.com/ZacharyJoyner/faceswap/releases/latest/download/FaceSwap-Windows-x64.zip)
 2. **Extract** the ZIP file to any folder
 3. **Run** `FaceSwap.exe`
 4. **That's it!** No Python installation needed.
 
 #### Linux  
-1. **Download**: [FaceSwap-Linux-x64.tar.gz](https://github.com/your-username/FaceSwap/releases/latest/download/FaceSwap-Linux-x64.tar.gz)
+1. **Download**: [FaceSwap-Linux-x64.tar.gz](https://github.com/ZacharyJoyner/faceswap/releases/latest/download/FaceSwap-Linux-x64.tar.gz)
 2. **Extract**: `tar -xzf FaceSwap-Linux-x64.tar.gz`
 3. **Run**: `./FaceSwap/FaceSwap`
 4. **Optional**: Make executable: `chmod +x FaceSwap/FaceSwap`
@@ -31,23 +31,57 @@ A powerful, local face swapping application built with Python, OpenCV, and Dlib.
 If you want to modify the code or run from source:
 
 #### Prerequisites
-1. **Python 3.8+** installed on your system
+1. **Python 3.9** installed on your system
 2. **Git** for cloning the repository
 
 #### Installation Steps
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/FaceSwap.git
-cd FaceSwap
+git clone https://github.com/ZacharyJoyner/faceswap.git
+cd faceswap
 
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Download required AI models (automated)
-python download_models.py
+# Download required AI models
+python -c "
+import urllib.request
+import bz2
+import os
+
+os.makedirs('models', exist_ok=True)
+
+# Download and extract shape predictor
+print('Downloading face landmark model...')
+urllib.request.urlretrieve(
+    'http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2',
+    'models/shape_predictor_68_face_landmarks.dat.bz2'
+)
+with bz2.BZ2File('models/shape_predictor_68_face_landmarks.dat.bz2', 'rb') as f_in:
+    with open('models/shape_predictor_68_face_landmarks.dat', 'wb') as f_out:
+        f_out.write(f_in.read())
+
+# Download and extract face recognition model
+print('Downloading face recognition model...')
+urllib.request.urlretrieve(
+    'http://dlib.net/files/dlib_face_recognition_resnet_model_v1.dat.bz2',
+    'models/dlib_face_recognition_resnet_model_v1.dat.bz2'
+)
+with bz2.BZ2File('models/dlib_face_recognition_resnet_model_v1.dat.bz2', 'rb') as f_in:
+    with open('models/dlib_face_recognition_resnet_model_v1.dat', 'wb') as f_out:
+        f_out.write(f_in.read())
+
+print('Models downloaded successfully!')
+"
 
 # Test installation (optional but recommended)
-python test_installation.py
+python -c "
+import dlib
+import cv2
+import numpy as np
+from PySide6 import QtCore, QtGui, QtWidgets
+print('✓ All dependencies installed successfully')
+"
 
 # Run the application
 python main.py
@@ -64,16 +98,10 @@ If you want to trigger a manual build or test the CI/CD system:
 4. Enter a version tag (e.g., `v1.0.0-test`)
 5. Click **"Run workflow"** to start the build
 
-#### Alternative Conda Build
-For systems where dlib compilation fails:
-1. Go to **Actions** → **"Build FaceSwap with Conda (Alternative)"**
-2. Click **"Run workflow"**
-3. This uses pre-compiled packages and may work better on some systems
-
 ## Features
 
 - **🔒 100% Local Processing**: Everything runs on your machine - no internet required after setup
-- **🎯 Automatic Face Detection**: Detects and groups unique faces in videos
+- **🎯 Automatic Face Detection**: Detects and groups unique faces in videos using dlib
 - **🖥️ Interactive GUI**: Easy-to-use interface built with PySide6
 - **✨ High Quality Results**: Uses Poisson blending for seamless face swaps
 - **📊 Progress Tracking**: Real-time progress updates during processing
@@ -81,17 +109,17 @@ For systems where dlib compilation fails:
 
 ## Tech Stack
 
-- **Language**: Python 3.8+
+- **Language**: Python 3.9
 - **GUI Framework**: PySide6 (Qt for Python)
-- **Computer Vision**: OpenCV, Dlib
-- **Math/Arrays**: NumPy
-- **Image Processing**: Pillow
+- **Computer Vision**: OpenCV 4.8.1, Dlib 19.24.2
+- **Math/Arrays**: NumPy 1.24.3
+- **Image Processing**: Pillow 10.0.1
 
 ## 🎬 How to Use
 
 ### Quick Start Guide
 
-1. **Launch** the FaceSwap application
+1. **Launch** the FaceSwap application (`python main.py`)
 2. **Select Video**: Click "Select Video" to choose your input video file
 3. **Scan for Faces**: Click "Scan Video for Faces" to detect all unique people (this may take a few minutes)
 4. **Assign Swap Images**: For each detected face, click "Select Image..." to choose a replacement face image
@@ -140,11 +168,12 @@ FaceSwap/
 │   ├── main_window.py      # Main GUI window
 │   ├── face_card.py        # Individual face card widget
 │   └── progress_dialog.py  # Progress tracking dialog
-├── models/                 # Dlib model files (user downloads)
 ├── utils/
 │   ├── __init__.py
 │   └── video_utils.py      # Video processing utilities
+├── models/                 # Dlib model files (auto-downloaded)
 ├── requirements.txt        # Python dependencies
+├── config.py              # Configuration settings
 └── README.md              # This file
 ```
 
@@ -196,6 +225,28 @@ You can adjust these parameters in `config.py`:
    - Try running from terminal to see error messages
    - Ensure you extracted all files from the archive
 
+### Developer Installation Issues
+
+1. **Dlib compilation fails**:
+   ```bash
+   # Install system dependencies first
+   sudo apt-get install build-essential cmake libopenblas-dev liblapack-dev
+   pip install dlib --no-cache-dir
+   ```
+
+2. **Model download fails**:
+   - Check internet connection
+   - Manually download models from http://dlib.net/files/
+   - Place in `models/` directory
+
+3. **Import errors**:
+   ```bash
+   # Test each dependency individually
+   python -c "import dlib; print('✓ Dlib works')"
+   python -c "import cv2; print('✓ OpenCV works')"
+   python -c "from PySide6 import QtWidgets; print('✓ PySide6 works')"
+   ```
+
 ### Video Processing Issues
 
 1. **Video not opening**:
@@ -215,11 +266,8 @@ You can adjust these parameters in `config.py`:
 
 ### Getting Help
 
-- **Test Installation**: Run `python test_installation.py` to check if everything is working
-- **Check the logs**: Look for error messages in the application
-- **GitHub Issues**: Report bugs at [GitHub Issues](https://github.com/your-username/FaceSwap/issues)
+- **GitHub Issues**: Report bugs at [GitHub Issues](https://github.com/ZacharyJoyner/faceswap/issues)
 - **System Info**: Include your OS, RAM, and video details when reporting issues
-- **Build Issues**: If the Linux build fails, try the alternative Conda build from the Actions page
 
 ## Contributing
 
@@ -229,13 +277,13 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 ```bash
 # Clone for development
-git clone <repository-url>
-cd FaceSwap
+git clone https://github.com/ZacharyJoyner/faceswap.git
+cd faceswap
 
 # Install in development mode
-pip install -e .
+pip install -r requirements.txt
 
-# Install development dependencies
+# Install development dependencies (optional)
 pip install pytest black flake8
 ```
 
@@ -259,11 +307,9 @@ This application uses GitHub Releases for distribution:
 - **Release Notes**: Each release includes detailed changelog
 - **Beta Versions**: Available for testing new features
 - **Manual Builds**: Contributors can trigger builds manually via GitHub Actions
-- **Alternative Builds**: Conda-based builds available for systems with compilation issues
 
 ### Build Status
 - **Main Build** (pip-based): For most users and systems
-- **Conda Build** (conda-forge): For systems where dlib compilation fails
 - **Manual Triggers**: Available for testing and development
 
 ## 📝 License
