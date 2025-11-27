@@ -159,7 +159,7 @@ jobs:
 
     - name: Download model files
       run: |
-        mkdir models
+        if (!(Test-Path -Path "models")) { mkdir models }
         cd models
 
         Invoke-WebRequest -Uri "http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2" -OutFile "shape_predictor_68_face_landmarks.dat.bz2"
